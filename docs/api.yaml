@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: DroneAnalytics API
-  description: Service for visualizing drone data
+  description: Service for visualizing drone data for discipline "Cyberimmune Systems Software Engineering"
   contact:
     name: "Erkhov A. A. - Admin"
     url: "https://github.com/SashaErkhov"
@@ -44,12 +44,14 @@ paths:
               items:
                 type: object
                 properties:
+                  apiVersion:
+                    $ref: '#/components/schemas/apiVersion'
                   timestamp:
                     $ref: '#/components/schemas/timestamp'
                   drone:
                     $ref: '#/components/schemas/drone'
                   drone_id:
-                    $ref: '#/components/schemas/drone_id'
+                    $ref: '#/components/schemas/id'
                   battery:
                     type: integer
                     format: int8
@@ -86,7 +88,7 @@ paths:
                     description: East longitude
                     minimum: 0
                     maximum: 180
-                required: [timestamp, drone, drone_id, course, NLatitude, ELongitude]
+                required: [timestamp, drone, drone_id, NLatitude, ELongitude]
       responses:
         200:
           description: OK
@@ -94,6 +96,70 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
+  /log/basic:
+    post:
+      security: [ ]
+      tags: [ log ]
+      summary: the most generalized format of log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  timestamp:
+                    $ref: '#/components/schemas/timestamp'
+                  message:
+                    type: string
+                required: [timestamp, message]
+      responses:
+        200:
+          description: OK
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+  /log/event:
+    post:
+      security: [ ]
+      tags: [ log ]
+      summary: event and safety event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  apiVersion:
+                    $ref: '#/components/schemas/apiVersion'
+                  timestamp:
+                    $ref: '#/components/schemas/timestamp'
+                  event_type:
+                    type: string
+                    enum: ["event", "safety_event"]
+                  service:
+                    $ref: '#/components/schemas/service'
+                  service_id:
+                    $ref: '#/components/schemas/id'
+                  severity:
+                    $ref: '#/components/schemas/severity'
+                  message:
+                    type: string
+                required: [timestamp, service, service_id, message]
+      responses:
+        200:
+          description: OK
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+
 
 
 components:
@@ -120,6 +186,16 @@ components:
       bearerFormat: JWT
 
   schemas:
+    apiVersion:
+      type: string
+      description: API version
+      default: 1.0.0
+
+    severity:
+      type: string
+      enum: ["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]
+      description: severity of event - Like syslog
+
     Error:
       type: object
       properties:
@@ -141,8 +217,14 @@ components:
       description: Type of drone
       enum: ["delivery", "queen", "inspector", "agriculture"]
 
-    drone_id:
+    service:
+      type: string
+      description: Type of service
+      enum: ["delivery", "queen", "inspector", "agriculture", "GCS", "aggregator", "insurance", "regulator",
+      "portOfDrones", "OrAT_drones", "operator", "SITL", "Gazebo", "infopanel", "registry",]
+
+    id:
       type: integer
       format: int64
-      description: ID of drone. For example, we a have 3 delivery drones, then drone_id will be 1, 2, 3.
+      description: ID of drone or service. For example, we a have 3 delivery drones, then drone_id will be 1, 2, 3.
 
