@@ -1,0 +1,148 @@
+openapi: 3.0.0
+info:
+  title: DroneAnalytics API
+  description: Service for visualizing drone data
+  contact:
+    name: "Erkhov A. A. - Admin"
+    url: "https://github.com/SashaErkhov"
+    email: "sasori654654@gmail.com"
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:80/api
+    description: dev
+  - url: https://infopanel.csse.ru/api
+    description: prod
+
+tags:
+  - name: auth
+    description: registration and authentication.
+  - name: log
+    description: logs.
+  - name: analytics
+    description: analytics for frontend.
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /log/telemetry:
+    post:
+      security: []
+      tags: [log]
+      summary: telemetry of drone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  timestamp:
+                    $ref: '#/components/schemas/timestamp'
+                  drone:
+                    $ref: '#/components/schemas/drone'
+                  drone_id:
+                    $ref: '#/components/schemas/drone_id'
+                  battery:
+                    type: integer
+                    format: int8
+                    description: battery level in percents
+                    minimum: 0
+                    maximum: 100
+                  pitch:
+                    type: number
+                    format: double
+                    description: pitch clockwise angle in degrees
+                    minimum: -90
+                    maximum: 90
+                  roll:
+                    type: number
+                    format: double
+                    description: roll clockwise angle in degrees
+                    minimum: -180
+                    maximum: 180
+                  course:
+                    type: number
+                    format: double
+                    description: The angle between the direction of magnetic north and the longitudinal axis of the aircraft.
+                    minimum: 0
+                    maximum: 360
+                  NLatitude:
+                    type: number
+                    format: double
+                    description: North latitude
+                    minimum: 0
+                    maximum: 90
+                  ELongitude:
+                    type: number
+                    format: double
+                    description: East longitude
+                    minimum: 0
+                    maximum: 180
+                required: [timestamp, drone, drone_id, course, NLatitude, ELongitude]
+      responses:
+        200:
+          description: OK
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+
+
+components:
+  responses:
+    ValidationError:
+      description: Bad Request - validation error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnauthorizedError:
+      description: Unauthorized - authentication required or token invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+
+  securitySchemes:
+    BearerAuth:
+      type: https
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: Application-specific error code.
+        message:
+          type: string
+          description: Human-readable error message.
+
+    timestamp:
+      type: integer
+      format: int64
+      description: Unix timestamp in milliseconds
+
+    drone:
+      type: string
+      description: Type of drone
+      enum: ["delivery", "queen", "inspector", "agriculture"]
+
+    drone_id:
+      type: integer
+      format: int64
+      description: ID of drone. For example, we a have 3 delivery drones, then drone_id will be 1, 2, 3.
+
