@@ -29,10 +29,80 @@ security:
   - BearerAuth: []
 
 paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: login and receive access/refresh tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        200:
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  $ref: '#/components/schemas/refresh_token'
+              required: [refresh_token]
+      responses:
+        200:
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: logout
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  $ref: '#/components/schemas/refresh_token'
+              required: [refresh_token]
+      responses:
+        200:
+          description: OK
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
 
   /log/telemetry:
     post:
-      security: []
+      security:
+        - ApiKeyAuth: []
       tags: [log]
       summary: telemetry of drone
       requestBody:
@@ -41,8 +111,11 @@ paths:
           application/json:
             schema:
               type: array
+              minItems: 1
+              maxItems: 1000
               items:
                 type: object
+                additionalProperties: false
                 properties:
                   apiVersion:
                     $ref: '#/components/schemas/apiVersion'
@@ -76,19 +149,19 @@ paths:
                     description: The angle between the direction of magnetic north and the longitudinal axis of the aircraft.
                     minimum: 0
                     maximum: 360
-                  NLatitude:
+                  latitude:
                     type: number
                     format: double
-                    description: North latitude
-                    minimum: 0
+                    description:  `+` - North latitude `-` - South latitude
+                    minimum: -90
                     maximum: 90
-                  ELongitude:
+                  longitude:
                     type: number
                     format: double
-                    description: East longitude
-                    minimum: 0
+                    description: `+` - East longitude `-` - West longitude
+                    minimum: -180
                     maximum: 180
-                required: [timestamp, drone, drone_id, NLatitude, ELongitude]
+                required: [timestamp, drone, drone_id, latitude, longitude, apiVersion]
       responses:
         200:
           description: OK
@@ -98,7 +171,8 @@ paths:
           $ref: '#/components/responses/ValidationError'
   /log/basic:
     post:
-      security: [ ]
+      security:
+        - ApiKeyAuth: []
       tags: [ log ]
       summary: the most generalized format of log
       requestBody:
@@ -107,8 +181,11 @@ paths:
           application/json:
             schema:
               type: array
+              minItems: 1
+              maxItems: 1000
               items:
                 type: object
+                additionalProperties: false
                 properties:
                   timestamp:
                     $ref: '#/components/schemas/timestamp'
@@ -124,7 +201,8 @@ paths:
           $ref: '#/components/responses/ValidationError'
   /log/event:
     post:
-      security: [ ]
+      security:
+        - ApiKeyAuth: []
       tags: [ log ]
       summary: event and safety event
       requestBody:
@@ -133,8 +211,11 @@ paths:
           application/json:
             schema:
               type: array
+              minItems: 1
+              maxItems: 1000
               items:
                 type: object
+                additionalProperties: false
                 properties:
                   apiVersion:
                     $ref: '#/components/schemas/apiVersion'
@@ -151,7 +232,7 @@ paths:
                     $ref: '#/components/schemas/severity'
                   message:
                     type: string
-                required: [timestamp, service, service_id, message]
+                required: [timestamp, service, service_id, message, apiVersion]
       responses:
         200:
           description: OK
@@ -181,11 +262,31 @@ components:
 
   securitySchemes:
     BearerAuth:
-      type: https
+      type: http
       scheme: bearer
       bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
 
   schemas:
+    access_token:
+      type: string
+    refresh_token:
+      type: string
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 8
+          maxLength: 64
+        password:
+          type: string
+          minLength: 8
+          maxLength: 64
+      required: [username, password]
     apiVersion:
       type: string
       description: API version
@@ -206,6 +307,7 @@ components:
         message:
           type: string
           description: Human-readable error message.
+      required: [code, message]
 
     timestamp:
       type: integer
@@ -221,10 +323,25 @@ components:
       type: string
       description: Type of service
       enum: ["delivery", "queen", "inspector", "agriculture", "GCS", "aggregator", "insurance", "regulator",
-      "portOfDrones", "OrAT_drones", "operator", "SITL", "Gazebo", "infopanel", "registry",]
+             "portOfDrones", "OrAT_drones", "operator", "SITL", "Gazebo", "infopanel", "registry"]
 
     id:
       type: integer
       format: int64
       description: ID of drone or service. For example, we a have 3 delivery drones, then drone_id will be 1, 2, 3.
 
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          $ref: '#/components/schemas/access_token'
+        refresh_token:
+          $ref: '#/components/schemas/refresh_token'
+        token_type:
+          type: string
+          default: "Bearer"
+        expires_in:
+          type: integer
+          format: int64
+          description: Access token lifetime in seconds
+      required: [access_token, refresh_token]
