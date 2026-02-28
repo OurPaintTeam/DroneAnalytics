@@ -323,7 +323,7 @@ components:
       type: string
       description: Type of service
       enum: ["delivery", "queen", "inspector", "agriculture", "GCS", "aggregator", "insurance", "regulator",
-             "portOfDrones", "OrAT_drones", "operator", "SITL", "Gazebo", "infopanel", "registry"]
+             "dronePort", "OrAT_drones", "operator", "SITL", "Gazebo", "infopanel", "registry"]
 
     id:
       type: integer
