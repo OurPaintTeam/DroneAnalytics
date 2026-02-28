@@ -5,4 +5,6 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.121.0",
     "uvicorn==0.38.0",
+    "bcrypt==4.3.0",
+    "PyJWT==2.10.1",
 ]
