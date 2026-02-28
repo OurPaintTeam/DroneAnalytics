@@ -4,18 +4,18 @@ import EugenPhoto from "../assets/Eugen.jpg"
 import NikitaPhoto from "../assets/Nikita.jpg"
 
 import OP_logo from "../assets/OP_logo.svg"
-import SPbguLogo from "../assets/SPbgu_logo.svg"
+import SPbguLogo from "../assets/spbgu_logo.svg"
 
-import { RED } from "../main"
-
-const teamMembers = [
-    { name: "Alex", role: "Архитектор", photo: AlexPhoto },
-    { name: "Tim", role: "Фронтенд разработчик", photo: TimPhoto },
-    { name: "Eugen", role: "Бекенд тимлид", photo: EugenPhoto },
-    { name: "Nikita", role: "Бекенд разработчик", photo: NikitaPhoto },
-]
+import { RED } from "../config.ts"
 
 const AboutPage = () => {
+    const teamMembers = [
+        { name: "Alex", role: "Архитектор", photo: AlexPhoto },
+        { name: "Tim", role: "Фронтенд разработчик", photo: TimPhoto },
+        { name: "Eugen", role: "Бекенд тимлид", photo: EugenPhoto },
+        { name: "Nikita", role: "Бекенд разработчик", photo: NikitaPhoto },
+    ]
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8">
 
@@ -56,7 +56,7 @@ const AboutPage = () => {
                 </div>
                 <div className="flex flex-col items-center">
                     <img src={SPbguLogo} alt="SPbGU" className="h-16 mb-2" />
-                    <span className="text-gray-700 font-medium text-sm">SPbGU</span>
+                    <span className="text-gray-700 font-medium text-sm">SPbU</span>
                 </div>
             </div>
         </div>

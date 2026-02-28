@@ -1,6 +1,6 @@
 import OP_logo from "../assets/OP_logo.svg"
-import SPbguLogo from "../assets/SPbgu_logo.svg"
-import {RED} from "../main"
+import SPbguLogo from "../assets/spbgu_logo.svg"
+import {RED} from "../config.ts"
 
 function LoginPage() {
     return (

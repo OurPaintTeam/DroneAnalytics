@@ -1,5 +1,5 @@
 import {useEffect, useRef} from "react"
-import { RED } from "../main"
+import { RED } from "../config.ts"
 
 export interface LogPanelProps {
     title: string

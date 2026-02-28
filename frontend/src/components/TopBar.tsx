@@ -1,10 +1,11 @@
 import {Outlet, NavLink} from "react-router-dom"
 import SPbguLogo from "../assets/spbgu_logo.svg"
 import OP_logo from "../assets/OP_logo.svg"
-import { RED } from "../main"
+import { RED } from "../config.ts"
 
-const navLinkClass = ({isActive}: { isActive: boolean }) =>
-    `
+function TopBarLayout() {
+    const navLinkClass = ({isActive}: { isActive: boolean }) =>
+        `
     relative pb-1
     transition-colors duration-200
     hover:text-gray-900
@@ -23,15 +24,14 @@ const navLinkClass = ({isActive}: { isActive: boolean }) =>
     ${isActive ? "after:scale-x-100" : "after:scale-x-0"}
   `
 
-const NAV_ITEMS = [
-    {to: "/log", label: "Журнал", end: true},
-    {to: "/security", label: "Безопасность"},
-    {to: "/telemetry", label: "Телеметрия"},
-    {to: "/commands", label: "Аналитика команд"},
-    {to: "/about", label: "О нас"},
-]
+    const NAV_ITEMS = [
+        {to: "/log", label: "Журнал", end: true},
+        {to: "/security", label: "Безопасность"},
+        {to: "/telemetry", label: "Телеметрия"},
+        {to: "/commands", label: "Аналитика команд"},
+        {to: "/about", label: "О нас"},
+    ]
 
-function TopBarLayout() {
     return (
         <div className="min-h-screen flex flex-col bg-white text-gray-800">
             {/* TOP BAR */}
