@@ -6,6 +6,8 @@ import NikitaPhoto from "../assets/Nikita.jpg"
 import OP_logo from "../assets/OP_logo.svg"
 import SPbguLogo from "../assets/SPbgu_logo.svg"
 
+import { RED } from "../main"
+
 const teamMembers = [
     { name: "Alex", role: "Архитектор", photo: AlexPhoto },
     { name: "Tim", role: "Фронтенд разработчик", photo: TimPhoto },
@@ -18,7 +20,10 @@ const AboutPage = () => {
         <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8">
 
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-extrabold text-[#9F2D20] mb-4 text-center">
+            <h1
+                className="text-3xl md:text-4xl font-extrabold mb-4 text-center"
+                style={{ color: RED }}
+            >
                 About Drone Analytics
             </h1>
             <p className="text-gray-700 text-center max-w-2xl mb-12">

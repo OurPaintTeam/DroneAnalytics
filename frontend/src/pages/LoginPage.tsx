@@ -1,5 +1,6 @@
 import OP_logo from "../assets/OP_logo.svg"
 import SPbguLogo from "../assets/SPbgu_logo.svg"
+import {RED} from "../main"
 
 function LoginPage() {
     return (
@@ -9,7 +10,7 @@ function LoginPage() {
             <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
 
                 {/* Top red line */}
-                <div className="h-1 bg-[#9F2D20]"/>
+                <div className="h-1" style={{backgroundColor: RED}}/>
 
                 <div className="px-10 py-8 flex flex-col gap-6">
 
@@ -20,8 +21,8 @@ function LoginPage() {
                         <div className="flex items-center gap-2">
                             <img src={OP_logo} alt="OP Logo" className="h-9"/>
                             <span className="text-lg font-semibold tracking-tight">
-                <span className="text-[#9F2D20]">OurPaint</span> Company
-              </span>
+                                <span style={{color: RED}}>OurPaint</span> Company
+                            </span>
                         </div>
 
                         {/* Separator */}
@@ -37,7 +38,10 @@ function LoginPage() {
 
                     {/* Title */}
                     <div className="text-center">
-                        <h1 className="text-3xl font-extrabold tracking-tight text-[#9F2D20]">
+                        <h1
+                            className="text-3xl font-extrabold tracking-tight"
+                            style={{color: RED}}
+                        >
                             Drone Analytics
                         </h1>
 
@@ -57,14 +61,8 @@ function LoginPage() {
                             <input
                                 type="text"
                                 placeholder="Введите логин"
-                                className="
-                  w-full px-4 py-2
-                  rounded-lg
-                  border border-gray-300
-                  focus:outline-none
-                  focus:ring-2 focus:ring-[#9F2D20]/40
-                  transition
-                "
+                                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none transition"
+                                style={{outlineColor: RED}}
                             />
                         </div>
 
@@ -76,39 +74,16 @@ function LoginPage() {
                             <input
                                 type="password"
                                 placeholder="Введите пароль"
-                                className="
-                  w-full px-4 py-2
-                  rounded-lg
-                  border border-gray-300
-                  focus:outline-none
-                  focus:ring-2 focus:ring-[#9F2D20]/40
-                  transition
-                "
+                                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none transition"
+                                style={{outlineColor: RED}}
                             />
                         </div>
 
-                        {/* Forgot password */}
-                        <div className="flex justify-end">
-                            <button
-                                type="button"
-                                className="text-sm text-[#9F2D20] hover:underline"
-                            >
-                                Забыли пароль?
-                            </button>
-                        </div>
 
-                        {/* Submit */}
                         <button
                             type="submit"
-                            className="
-                mt-2 py-3
-                rounded-lg
-                bg-[#9F2D20]
-                text-white font-semibold
-                hover:bg-[#87251B]
-                transition
-                shadow-md hover:shadow-lg
-              "
+                            className="mt-2 py-3 rounded-lg text-white font-semibold transition shadow-md hover:shadow-lg"
+                            style={{backgroundColor: RED}}
                         >
                             Войти
                         </button>

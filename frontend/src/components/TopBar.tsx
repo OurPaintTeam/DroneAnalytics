@@ -1,8 +1,7 @@
 import {Outlet, NavLink} from "react-router-dom"
 import SPbguLogo from "../assets/spbgu_logo.svg"
 import OP_logo from "../assets/OP_logo.svg"
-
-const RED = "#9F2D20"
+import { RED } from "../main"
 
 const navLinkClass = ({isActive}: { isActive: boolean }) =>
     `

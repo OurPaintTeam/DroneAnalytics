@@ -1,6 +1,5 @@
 import {useEffect, useRef} from "react"
-
-const RED = "#9F2D20"
+import { RED } from "../main"
 
 export interface LogPanelProps {
     title: string
@@ -43,7 +42,7 @@ export default function LogPanel({title, logs, onDownload}: LogPanelProps) {
           overflow-hidden
         "
             >
-                {/* ren line */}
+                {/* red line */}
                 <div
                     className="absolute top-0 left-0 right-0 h-[3px]"
                     style={{backgroundColor: RED}}

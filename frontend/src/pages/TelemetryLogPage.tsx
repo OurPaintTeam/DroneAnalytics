@@ -20,7 +20,7 @@ export default function TelemetryLogPage() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `event_logs_${new Date().toISOString()}.txt`
+        a.download = `telemetry_logs_${new Date().toISOString()}.txt`
         a.click()
         URL.revokeObjectURL(url)
     }
