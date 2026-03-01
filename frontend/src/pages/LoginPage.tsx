@@ -12,24 +12,25 @@ function LoginPage() {
                 {/* Top red line */}
                 <div className="h-1" style={{backgroundColor: RED}}/>
 
-                <div className="px-10 py-8 flex flex-col gap-6">
+                <div className="px-10 py-8 flex flex-col gap-4">
 
                     {/* Branding */}
-                    <div className="flex items-center justify-between">
-
+                    <div className="flex items-center justify-center gap-10">
                         {/* Left: OP Logo + OurPaint */}
                         <div className="flex items-center gap-2">
                             <img src={OP_logo} alt="OP Logo" className="h-9"/>
-                            <span className="text-lg font-semibold tracking-tight">
-                                <span style={{color: RED}}>OurPaint</span> Company
-                            </span>
+                            <span className="text-sm font-semibold tracking-tight leading-none">
+                                <span style={{ color: RED }}>OurPaint</span>
+                                 <br />
+                                 <span className="text-gray-800">Company</span>
+                             </span>
                         </div>
 
                         {/* Separator */}
-                        <div className="h-10 w-[1px] bg-gray-300 mx-4"/>
+                        <div className="h-10 w-[1px] bg-gray-300"/>
 
                         {/* Right: SPbGU Logo */}
-                        <img src={SPbguLogo} alt="SPbGU Logo" className="h-14"/>
+                        <img src={SPbguLogo} alt="SPbGU Logo" className="h-20"/>
 
                     </div>
 
