@@ -96,3 +96,43 @@ ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "GitCommit"
 ADD FOREIGN KEY("student_id") REFERENCES "Student"("id")
 ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+-- Constraints for Student's name
+ALTER TABLE "Student" 
+ADD CONSTRAINT "student_name_not_empty" 
+CHECK (trim("name") != '');
+
+-- Constraints for Authorization (login - only letters and numbers)
+ALTER TABLE "Authorization" 
+ADD CONSTRAINT "login_alphanumeric" 
+CHECK ("login" ~ '^[a-zA-Z0-9]+$');
+
+ALTER TABLE "Authorization" 
+ADD CONSTRAINT "password_min_length" 
+CHECK (length("password") >= 8);
+
+-- Constraints for Team's name (only letters)
+ALTER TABLE "Team" 
+ADD CONSTRAINT "team_name_alpha_only" 
+CHECK ("name" ~ '^[a-zA-Z]+$');
+
+-- Constraints for Service's name (only letters)
+ALTER TABLE "Service" 
+ADD CONSTRAINT "service_name_alpha_only" 
+CHECK ("name" ~ '^[a-zA-Z]+$');
+
+-- Constraints for Achievement's name (can contain letters, numbers, and spaces)
+ALTER TABLE "Achievement" 
+ADD CONSTRAINT "achievement_name_valid_chars" 
+CHECK ("name" ~ '^[a-zA-Z0-9 ]+$');
+
+-- Constraints for AchievementTeam (timestamp defaults to current time)
+ALTER TABLE "AchievementTeam" 
+ALTER COLUMN "timestamp" SET DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "AchievementTeam" 
+ADD CONSTRAINT "achievement_timestamp_not_future" 
+CHECK ("timestamp" <= CURRENT_TIMESTAMP);
+
+
