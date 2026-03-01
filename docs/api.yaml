@@ -190,7 +190,7 @@ paths:
                   timestamp:
                     $ref: '#/components/schemas/timestamp'
                   message:
-                    type: string
+                    $ref: '#/components/schemas/message'
                 required: [timestamp, message]
       responses:
         200:
@@ -231,7 +231,7 @@ paths:
                   severity:
                     $ref: '#/components/schemas/severity'
                   message:
-                    type: string
+                    $ref: '#/components/schemas/message'
                 required: [timestamp, service, service_id, message, apiVersion]
       responses:
         200:
@@ -271,10 +271,18 @@ components:
       name: X-API-Key
 
   schemas:
+    message:
+      type: string
+      minLength: 1
+      maxLength: 1024
     access_token:
       type: string
+      minLength: 16
+      maxLength: 1024
     refresh_token:
       type: string
+      minLength: 16
+      maxLength: 1024
     LoginRequest:
       type: object
       properties:
@@ -291,6 +299,8 @@ components:
       type: string
       description: API version
       default: 1.0.0
+      minLength: 5
+      maxLength: 8
 
     severity:
       type: string
@@ -304,15 +314,17 @@ components:
           type: integer
           format: int32
           description: Application-specific error code.
+          minimum: 200
+          maximum: 599
         message:
-          type: string
-          description: Human-readable error message.
+          $ref: '#/components/schemas/message'
       required: [code, message]
 
     timestamp:
       type: integer
       format: int64
       description: Unix timestamp in milliseconds
+      minimum: 0
 
     drone:
       type: string
@@ -327,6 +339,8 @@ components:
 
     id:
       type: integer
+      minimum: 1
+      maximum: 1000
       format: int64
       description: ID of drone or service. For example, we a have 3 delivery drones, then drone_id will be 1, 2, 3.
 
@@ -340,8 +354,11 @@ components:
         token_type:
           type: string
           default: "Bearer"
+          maxLength: 16
         expires_in:
           type: integer
           format: int64
           description: Access token lifetime in seconds
+          minimum: 60
+          maximum: 86400
       required: [access_token, refresh_token]
