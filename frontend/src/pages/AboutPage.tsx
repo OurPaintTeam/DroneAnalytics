@@ -62,7 +62,7 @@ const AboutPage = () => {
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Наши посредники</h2>
             <div className="flex items-center gap-12">
                 <div className="flex items-center gap-3">
-                    <img src={OP_logo} alt="OutPaint Company" className="h-12"/>
+                    <img src={OP_logo} alt="OurPaint Company" className="h-12"/>
                     <span className="font-semibold text-sm leading-none text-left">
                     <span style={{color: RED}}>OurPaint</span>
                                         <br/>
