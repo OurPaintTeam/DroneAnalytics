@@ -15,7 +15,7 @@ const AboutPage = () => {
         {name: "Тимофей Витальевич Скворчевский", role: "Frontend", photo: TimPhoto},
         {name: "Евгений Юрьевич Бычков", role: "Team Lead && Backend", photo: EugenPhoto},
         {name: "Никита Андреевич Насибуллин", role: "Backend", photo: NikitaPhoto},
-        {name: "Иван Сергеевич Овсюков", role: "Тестировщик", photo: IvanPhoto},
+        {name: "Иван Сергеевич Овсюков", role: "Tester", photo: IvanPhoto},
     ]
 
     return (
