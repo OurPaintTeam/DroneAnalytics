@@ -25,11 +25,11 @@ class TokenPairResponse(StrictModel):
 
 class BasicLogItem(StrictModel):
     timestamp: int = Field(ge=0)
-    message: str = Field(min_length=1, max_length=4096)
+    message: str = Field(min_length=1, max_length=1024)
 
 
 class TelemetryLogItem(StrictModel):
-    apiVersion: str = Field(min_length=1, max_length=32)
+    apiVersion: str = Field(min_length=5, max_length=8)
     timestamp: int = Field(ge=0)
     drone: Literal["delivery", "queen", "inspector", "agriculture"]
     drone_id: int = Field(ge=1)
@@ -42,7 +42,7 @@ class TelemetryLogItem(StrictModel):
 
 
 class EventLogItem(StrictModel):
-    api_version: str = Field(min_length=1, max_length=32)
+    api_version: str = Field(min_length=5, max_length=8)
     timestamp: int = Field(ge=0)
     event_type: Literal["event", "safety_event"] | None = None
     service: Literal[
@@ -54,7 +54,7 @@ class EventLogItem(StrictModel):
         "aggregator",
         "insurance",
         "regulator",
-        "droneport",
+        "dronePort",
         "OrAT_drones",
         "operator",
         "SITL",
@@ -64,4 +64,4 @@ class EventLogItem(StrictModel):
     ]
     service_id: int = Field(ge=1)
     severity: Literal["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"] | None = None
-    message: str = Field(min_length=1, max_length=4096)
+    message: str = Field(min_length=1, max_length=1024)
