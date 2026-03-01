@@ -30,7 +30,7 @@ function LoginPage() {
                         <div className="h-10 w-[1px] bg-gray-300"/>
 
                         {/* Right: SPbGU Logo */}
-                        <img src={SPbguLogo} alt="SPbGU Logo" className="h-14"/>
+                        <img src={SPbguLogo} alt="SPbGU Logo" className="h-20"/>
 
                     </div>
 
