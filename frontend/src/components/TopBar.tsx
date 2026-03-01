@@ -39,18 +39,18 @@ function TopBarLayout() {
                 className="fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-8 shadow-sm border-b bg-white z-50">
 
                 {/* Logo */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                     <img src={OP_logo} alt="OP Logo" className="h-9 ml-3"/>
 
-                    <span className="text-xl font-semibold tracking-tight">
-            <span style={{color: RED}}>OurPaint</span> Company
+                    <span className="text-sm font-semibold tracking-tight  leading-none hidden sm:block">
+            <span style={{color: RED}}>OurPaint</span> <br />Company
           </span>
 
                     <img src={SPbguLogo} alt="SPbGU Logo" className="h-20 ml-3"/>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex items-center gap-6 text-sm font-medium">
+                <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                     {NAV_ITEMS.map(({to, label, end}) => (
                         <NavLink
                             key={to}
