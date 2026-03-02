@@ -275,6 +275,7 @@ components:
       type: string
       minLength: 1
       maxLength: 1024
+      description: Use only english
     access_token:
       type: string
       minLength: 16
