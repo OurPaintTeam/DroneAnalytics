@@ -103,14 +103,19 @@ ALTER TABLE "Student"
 ADD CONSTRAINT "student_name_not_empty" 
 CHECK (trim("name") != '');
 
--- Constraints for Authorization (login - only letters and numbers)
+-- Constraints for Authorization 
+-- Login: letters, numbers, and special characters
 ALTER TABLE "Authorization" 
-ADD CONSTRAINT "login_alphanumeric" 
-CHECK ("login" ~ '^[a-zA-Z0-9]+$');
+ADD CONSTRAINT "login_valid_chars" 
+CHECK ("login" ~ '^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};:\\|,.<>\/?]+$');
 
 ALTER TABLE "Authorization" 
 ADD CONSTRAINT "password_min_length" 
 CHECK (length("password") >= 8);
+
+ALTER TABLE "Authorization" 
+ADD CONSTRAINT "password_valid_chars" 
+CHECK ("password" ~ '^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};:\\|,.<>\/?]+$');
 
 -- Constraints for Team's name (only letters)
 ALTER TABLE "Team" 
