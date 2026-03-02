@@ -1,1 +1,1 @@
-FROM elasticsearch:9.3.1-debian13
+FROM elasticsearch:9.3.1
