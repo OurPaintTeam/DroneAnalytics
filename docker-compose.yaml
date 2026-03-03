@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    expose:
+      - 8080
+    networks:
+      - DE-net
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - elastic
+      - psql
+  elastic:
+    build: ./elastic
+    container_name: elastic
+    expose:
+      - 9200
+    networks:
+      - DE-net
+    env_file:
+      - ./elastic/.env
+    volumes:
+      - ./data/elastic:/usr/share/elasticsearch/data
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    expose:
+      - 5173
+    networks:
+      - DE-net
+  init-elastic:
+    build:
+      context: ./elastic
+      dockerfile: Dockerfile
+    container_name: init-elastic
+    networks:
+      - DE-net
+    env_file:
+      - ./init-elastic/.env
+    depends_on:
+      - elastic
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - DE-net
+    depends_on:
+      - backend
+      - frontend
+    security_opt:
+      - no-new-privileges:true
+  psql:
+    build:
+      context: ./psql
+      dockerfile: Dockerfile
+    container_name: psql
+    expose:
+      - 5432
+    networks:
+      - DE-net
+    env_file:
+      - ./psql/.env
+
+networks:
+  DE-net:
+    driver: bridge
