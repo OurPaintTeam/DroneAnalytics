@@ -1,0 +1,9 @@
+.idea
+.venv
+.env
+pyproject.toml
+README.md
+uv.lock
+__pycache__
+.dockerignore
+Dockerfile
