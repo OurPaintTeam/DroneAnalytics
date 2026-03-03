@@ -94,6 +94,7 @@ def main():
     except requests.exceptions.RequestException as e:
         print(f"Error. Message: {e}")
         sys.exit(1)
+    sys.exit(0)
 
 signal.signal(signal.SIGTERM, shutdown)
 

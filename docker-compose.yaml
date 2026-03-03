@@ -25,7 +25,7 @@ services:
     env_file:
       - ./elastic/.env
     volumes:
-      - ./data/elastic:/usr/share/elasticsearch/data
+      - esdata:/usr/share/elasticsearch/data
   frontend:
     build:
       context: ./frontend
@@ -37,7 +37,7 @@ services:
       - DE-net
   init-elastic:
     build:
-      context: ./elastic
+      context: ./init-elastic
       dockerfile: Dockerfile
     container_name: init-elastic
     networks:
@@ -72,6 +72,12 @@ services:
       - DE-net
     env_file:
       - ./psql/.env
+    volumes:
+      - psqldata:/var/lib/postgresql/data
+
+volumes:
+  esdata:
+  psqldata:
 
 networks:
   DE-net:
