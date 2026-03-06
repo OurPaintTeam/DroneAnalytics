@@ -14,7 +14,6 @@ services:
       - ./backend/.env
     depends_on:
       - elastic
-      - psql
   elastic:
     build: ./elastic
     container_name: elastic
@@ -57,27 +56,17 @@ services:
     networks:
       - DE-net
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+      init-elastic:
+        condition: service_completed_successfully
     security_opt:
       - no-new-privileges:true
-  psql:
-    build:
-      context: ./psql
-      dockerfile: Dockerfile
-    container_name: psql
-    expose:
-      - 5432
-    networks:
-      - DE-net
-    env_file:
-      - ./psql/.env
-    volumes:
-      - psqldata:/var/lib/postgresql/data
 
 volumes:
   esdata:
-  psqldata:
 
 networks:
   DE-net:

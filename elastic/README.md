@@ -4,4 +4,4 @@
 ## Запуск
  - порт дефолтный - 9200
  - .env - переменные окружения
- - volume: data:/usr/share/elasticsearch/data
+ - volume: esdata:/usr/share/elasticsearch/data
