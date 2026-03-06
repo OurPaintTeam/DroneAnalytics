@@ -4,8 +4,6 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 # Добавляем backend в PYTHONPATH, чтобы импортировать app
-backend_path = Path(__file__).parent.parent.parent / "backend"
-sys.path.insert(0, str(backend_path))
 
 from main import app
 
