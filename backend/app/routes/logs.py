@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 
 from app.dependencies import require_api_key
 from app.models import BasicLogItem, EventLogItem, TelemetryLogItem
@@ -52,6 +52,28 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
     return len(docs)
 
 
+def _get_logs_from_index(index: str, start: int, size: int):
+    try:
+        resp = requests.post(
+            f"{ELASTIC_URL}/{index}/_search",
+            json={
+                "from": start,
+                "size": size,
+                "sort": [{"timestamp": {"order": "desc"}}]
+            },
+            timeout=5
+        )
+
+        resp.raise_for_status()
+
+        data = resp.json()
+        hits = data.get("hits", {}).get("hits", [])
+
+        return [hit["_source"] for hit in hits]
+
+    except requests.RequestException as exc:
+        raise HTTPException(502, f"Elasticsearch error: {exc}")
+
 @router.post("/telemetry")
 def ingest_telemetry(
     payload: list[TelemetryLogItem] = Body(..., min_length=1, max_length=1000),
@@ -94,3 +116,61 @@ def ingest_event(
         indexed += _bulk_index("safety", safety_docs)
 
     return {"accepted": indexed}
+
+@router.get(
+    "/basic",
+    response_model=list[BasicLogItem],
+    summary="Get basic logs",
+    description="Returns basic logs sorted by timestamp"
+)
+def get_basic(
+    limit: int = Query(10, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    _: str = Depends(require_api_key)
+):
+    start = (page - 1) * limit
+    return _get_logs_from_index("basic", start, limit)
+
+
+@router.get(
+    "/telemetry",
+    response_model=list[TelemetryLogItem],
+    summary="Get telemetry logs",
+    description="Returns telemetry logs sorted by timestamp"
+)
+def get_telemetry(
+    limit: int = Query(10, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    _: str = Depends(require_api_key)
+):
+    start = (page - 1) * limit
+    return _get_logs_from_index("telemetry", start, limit)
+
+
+@router.get(
+    "/event",
+    response_model=list[EventLogItem],
+    summary="Get event logs",
+    description="Returns event logs sorted by timestamp"
+)
+def get_event(
+    limit: int = Query(10, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    _: str = Depends(require_api_key)
+):
+    start = (page - 1) * limit
+    return _get_logs_from_index("event", start, limit)
+
+@router.get(
+    "/safety",
+    response_model=list[EventLogItem],
+    summary="Get safety event logs",
+    description="Returns safety events sorted by timestamp"
+)
+def get_safety(
+    limit: int = Query(10, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    _: str = Depends(require_api_key)
+):
+    start = (page - 1) * limit
+    return _get_logs_from_index("safety", start, limit)
