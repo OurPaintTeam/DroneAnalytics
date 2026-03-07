@@ -1,0 +1,628 @@
+openapi: 3.1.0
+info:
+  title: DroneAnalytics API
+  version: 0.1.0
+paths:
+  /auth/login:
+    post:
+      tags:
+      - auth
+      summary: Auth Login
+      operationId: auth_login_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPairResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/refresh:
+    post:
+      tags:
+      - auth
+      summary: Auth Refresh
+      operationId: auth_refresh_auth_refresh_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPairResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Auth Logout
+      operationId: auth_logout_auth_logout_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Auth Logout Auth Logout Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /log/telemetry:
+    post:
+      tags:
+      - log
+      summary: Ingest Telemetry
+      operationId: ingest_telemetry_log_telemetry_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TelemetryLogItem'
+              minItems: 1
+              maxItems: 1000
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                title: Response Ingest Telemetry Log Telemetry Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - log
+      summary: Get telemetry logs
+      description: Returns telemetry logs sorted by timestamp
+      operationId: get_telemetry_log_telemetry_get
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 10
+          title: Limit
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelemetryLogItem'
+                title: Response Get Telemetry Log Telemetry Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /log/basic:
+    post:
+      tags:
+      - log
+      summary: Ingest Basic
+      operationId: ingest_basic_log_basic_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BasicLogItem'
+              minItems: 1
+              maxItems: 1000
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                title: Response Ingest Basic Log Basic Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - log
+      summary: Get basic logs
+      description: Returns basic logs sorted by timestamp
+      operationId: get_basic_log_basic_get
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 10
+          title: Limit
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BasicLogItem'
+                title: Response Get Basic Log Basic Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /log/event:
+    post:
+      tags:
+      - log
+      summary: Ingest Event
+      operationId: ingest_event_log_event_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventLogItem'
+              minItems: 1
+              maxItems: 1000
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                title: Response Ingest Event Log Event Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - log
+      summary: Get event logs
+      description: Returns event logs sorted by timestamp
+      operationId: get_event_log_event_get
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 10
+          title: Limit
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventLogItem'
+                title: Response Get Event Log Event Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /log/safety:
+    get:
+      tags:
+      - log
+      summary: Get safety event logs
+      description: Returns safety events sorted by timestamp
+      operationId: get_safety_log_safety_get
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 10
+          title: Limit
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventLogItem'
+                title: Response Get Safety Log Safety Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /:
+    get:
+      summary: Read Root
+      operationId: read_root__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Read Root  Get
+components:
+  schemas:
+    BasicLogItem:
+      properties:
+        timestamp:
+          type: integer
+          minimum: 0.0
+          title: Timestamp
+        message:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Message
+      additionalProperties: false
+      type: object
+      required:
+      - timestamp
+      - message
+      title: BasicLogItem
+    EventLogItem:
+      properties:
+        api_version:
+          type: string
+          maxLength: 8
+          minLength: 5
+          title: Api Version
+        timestamp:
+          type: integer
+          minimum: 0.0
+          title: Timestamp
+        event_type:
+          anyOf:
+          - type: string
+            enum:
+            - event
+            - safety_event
+          - type: 'null'
+          title: Event Type
+        service:
+          type: string
+          enum:
+          - delivery
+          - queen
+          - inspector
+          - agriculture
+          - GCS
+          - aggregator
+          - insurance
+          - regulator
+          - dronePort
+          - OrAT_drones
+          - operator
+          - SITL
+          - Gazebo
+          - infopanel
+          - registry
+          title: Service
+        service_id:
+          type: integer
+          minimum: 1.0
+          title: Service Id
+        severity:
+          anyOf:
+          - type: string
+            enum:
+            - debug
+            - info
+            - notice
+            - warning
+            - error
+            - critical
+            - alert
+            - emergency
+          - type: 'null'
+          title: Severity
+        message:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Message
+      additionalProperties: false
+      type: object
+      required:
+      - api_version
+      - timestamp
+      - service
+      - service_id
+      - message
+      title: EventLogItem
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoginRequest:
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          minLength: 4
+          title: Username
+        password:
+          type: string
+          maxLength: 64
+          minLength: 8
+          title: Password
+      additionalProperties: false
+      type: object
+      required:
+      - username
+      - password
+      title: LoginRequest
+    RefreshTokenRequest:
+      properties:
+        refresh_token:
+          type: string
+          maxLength: 1024
+          minLength: 16
+          title: Refresh Token
+      additionalProperties: false
+      type: object
+      required:
+      - refresh_token
+      title: RefreshTokenRequest
+    TelemetryLogItem:
+      properties:
+        apiVersion:
+          type: string
+          maxLength: 8
+          minLength: 5
+          title: Apiversion
+        timestamp:
+          type: integer
+          minimum: 0.0
+          title: Timestamp
+        drone:
+          type: string
+          enum:
+          - delivery
+          - queen
+          - inspector
+          - agriculture
+          title: Drone
+        drone_id:
+          type: integer
+          minimum: 1.0
+          title: Drone Id
+        battery:
+          anyOf:
+          - type: integer
+            maximum: 100.0
+            minimum: 0.0
+          - type: 'null'
+          title: Battery
+        pitch:
+          anyOf:
+          - type: number
+            maximum: 90.0
+            minimum: -90.0
+          - type: 'null'
+          title: Pitch
+        roll:
+          anyOf:
+          - type: number
+            maximum: 180.0
+            minimum: -180.0
+          - type: 'null'
+          title: Roll
+        course:
+          anyOf:
+          - type: number
+            maximum: 360.0
+            minimum: 0.0
+          - type: 'null'
+          title: Course
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Latitude
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Longitude
+      additionalProperties: false
+      type: object
+      required:
+      - apiVersion
+      - timestamp
+      - drone
+      - drone_id
+      - latitude
+      - longitude
+      title: TelemetryLogItem
+    TokenPairResponse:
+      properties:
+        access_token:
+          type: string
+          title: Access Token
+        refresh_token:
+          type: string
+          title: Refresh Token
+        token_type:
+          type: string
+          title: Token Type
+          default: Bearer
+        expires_in:
+          type: integer
+          title: Expires In
+      additionalProperties: false
+      type: object
+      required:
+      - access_token
+      - refresh_token
+      - expires_in
+      title: TokenPairResponse
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
+    APIKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
