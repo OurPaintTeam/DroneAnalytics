@@ -1,5 +1,11 @@
 # DroneAnalytics
 service of analytics and informaton panels for discipline "Cyberimmune Systems Software Engineering"
+## Быстрый старт
+Если не хочешь вникать, то надо просто:
+```shell
+make local
+```
+А как закончишь - сделай `make clean`.
 ## Запуск
 ### Переменные окружения
 Примерно каждый микросервис требует переменные окружения в своей папке. Их содержимое( я бы вообще не включал эту информацию, но нужны сквозные тесты):  
