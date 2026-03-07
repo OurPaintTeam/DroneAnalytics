@@ -4,6 +4,7 @@ from app.dependencies import require_api_key
 from app.models import BasicLogItem, EventLogItem, TelemetryLogItem
 from app.config import ELASTIC_URL
 
+
 import json
 import requests
 
@@ -32,20 +33,20 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
     except requests.RequestException as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"failed to reach Elasticsearch: {exc}",
+            detail="Log storage service is temporarily unavailable.",
         )
 
     if resp.status_code >= 300:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Elasticsearch bulk error: {resp.status_code} {resp.text}",
+            detail="Log storage service returned an internal error.",
         )
 
     payload = resp.json()
     if payload.get("errors"):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Elasticsearch reported errors during bulk indexing",
+            detail="Log storage service reported an internal error while processing the request.",
         )
 
     return len(docs)
