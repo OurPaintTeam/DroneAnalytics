@@ -103,7 +103,7 @@ paths:
     post:
       security:
         - ApiKeyAuth: []
-      tags: [log]
+      tags: [ log ]
       summary: telemetry of drone
       requestBody:
         required: true
@@ -169,6 +169,56 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
+    get:
+      tags: [ log ]
+      summary: get telemetry logs
+      description: Returns telemetry logs sorted by timestamp
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    apiVersion:
+                      $ref: '#/components/schemas/apiVersion'
+                    timestamp:
+                      $ref: '#/components/schemas/timestamp'
+                    drone:
+                      $ref: '#/components/schemas/drone'
+                    drone_id:
+                      $ref: '#/components/schemas/id'
+                    battery:
+                      type: integer
+                    pitch:
+                      type: number
+                    roll:
+                      type: number
+                    course:
+                      type: number
+                    latitude:
+                      type: number
+                    longitude:
+                      type: number
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
   /log/basic:
     post:
       security:
@@ -199,6 +249,42 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
+    get:
+      tags: [ log ]
+      summary: get basic logs
+      description: Returns basic logs sorted by timestamp
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    timestamp:
+                      $ref: '#/components/schemas/timestamp'
+                    message:
+                      $ref: '#/components/schemas/message'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
   /log/event:
     post:
       security:
@@ -240,7 +326,97 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
-
+    get:
+      tags: [ log ]
+      summary: get event logs
+      description: Returns event logs sorted by timestamp
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    apiVersion:
+                      $ref: '#/components/schemas/apiVersion'
+                    timestamp:
+                      $ref: '#/components/schemas/timestamp'
+                    event_type:
+                      type: string
+                      enum: ["event", "safety_event"]
+                    service:
+                      $ref: '#/components/schemas/service'
+                    service_id:
+                      $ref: '#/components/schemas/id'
+                    severity:
+                      $ref: '#/components/schemas/severity'
+                    message:
+                      $ref: '#/components/schemas/message'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+  /log/safety:
+    get:
+      tags: [ log ]
+      summary: get safety events
+      description: Returns safety events sorted by timestamp
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    apiVersion:
+                      $ref: '#/components/schemas/apiVersion'
+                    timestamp:
+                      $ref: '#/components/schemas/timestamp'
+                    event_type:
+                      type: string
+                      enum: ["event", "safety_event"]
+                    service:
+                      $ref: '#/components/schemas/service'
+                    service_id:
+                      $ref: '#/components/schemas/id'
+                    severity:
+                      $ref: '#/components/schemas/severity'
+                    message:
+                      $ref: '#/components/schemas/message'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
 
 
 components:
