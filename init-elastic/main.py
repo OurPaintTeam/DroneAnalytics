@@ -2,6 +2,7 @@ import os
 import requests
 import signal
 import sys
+import time
 
 
 def shutdown(signum, frame):
@@ -9,7 +10,7 @@ def shutdown(signum, frame):
     sys.exit(0)
 
 def main():
-    ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
+    ELASTIC_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
 
     f_index = {
         "settings": {
@@ -77,6 +78,26 @@ def main():
     }
 
     indexes = [(f_index, "telemetry"), (s_index, "basic"), (t_index, "event"), (fd_index, "safety")]
+
+    print("Waiting for ElasticSearch...")
+    time.sleep(60)
+    print("Trying to connect to ElasticSearch...")
+    ok = False
+    for i in range(1000):
+        if i % 10 == 0:
+            print("Trying to connect to ElasticSearch... -", i)
+        try:
+            request = requests.get(f"{ELASTIC_URL}/_cluster/health")
+            if request.status_code == 200 and request.json()["status"] == "green":
+                ok = True
+                break
+        except:
+            continue
+        time.sleep(1)
+    if not ok:
+        print("Error. I can't connect to ElasticSearch.")
+        sys.exit(1)
+
     try:
         for index, name in indexes:
             request = requests.put(
@@ -94,6 +115,7 @@ def main():
     except requests.exceptions.RequestException as e:
         print(f"Error. Message: {e}")
         sys.exit(1)
+    sys.exit(0)
 
 signal.signal(signal.SIGTERM, shutdown)
 
