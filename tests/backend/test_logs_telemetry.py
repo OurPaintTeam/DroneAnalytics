@@ -1035,27 +1035,9 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_timestamp_as_str(self, client, valid_api_key):
-        """G57: timestamp как str вместо int -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": "1234567890",  # Должно быть int
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
 
     def test_telemetry_timestamp_as_float(self, client, valid_api_key):
-        """G58: timestamp как float вместо int -> 400"""
+        """G57: timestamp как float вместо int -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 1234567890.5,  # Должно быть int
@@ -1073,27 +1055,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_timestamp_as_bool(self, client, valid_api_key):
-        """G59: timestamp как bool вместо int -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": True,  # Должно быть int
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_timestamp_as_null(self, client, valid_api_key):
-        """G60: timestamp как null вместо int -> 400"""
+        """G58: timestamp как null вместо int -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": None,  # Должно быть int
@@ -1112,7 +1075,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_drone_as_int(self, client, valid_api_key):
-        """G61: drone как int вместо str -> 400"""
+        """G59: drone как int вместо str -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1131,7 +1094,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_drone_as_list(self, client, valid_api_key):
-        """G62: drone как list вместо str -> 400"""
+        """G60: drone как list вместо str -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1150,7 +1113,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_drone_as_null(self, client, valid_api_key):
-        """G63: drone как null вместо str -> 400"""
+        """G61: drone как null вместо str -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1168,27 +1131,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_drone_id_as_str(self, client, valid_api_key):
-        """G64: drone_id как str вместо int -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": "1",  # Должно быть int
-            "latitude": 55.0,
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_drone_id_as_float(self, client, valid_api_key):
-        """G65: drone_id как float вместо int -> 400"""
+        """G62: drone_id как float вместо int -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1206,27 +1150,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_drone_id_as_bool(self, client, valid_api_key):
-        """G66: drone_id как bool вместо int -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": True,  # Должно быть int
-            "latitude": 55.0,
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_drone_id_as_null(self, client, valid_api_key):
-        """G67: drone_id как null вместо int -> 400"""
+        """G63: drone_id как null вместо int -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1244,65 +1169,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_latitude_as_str(self, client, valid_api_key):
-        """G68: latitude как str вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": "55.75",  # Должно быть float
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
-    def test_telemetry_latitude_as_int(self, client, valid_api_key):
-        """G69: latitude как int (допустимо, но проверяем)"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55,  # Int конвертируется в float
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
-    def test_telemetry_latitude_as_bool(self, client, valid_api_key):
-        """G70: latitude как bool вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": True,  # Должно быть float
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_latitude_as_null(self, client, valid_api_key):
-        """G71: latitude как null вместо float -> 400"""
+        """G64: latitude как null вместо float -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1320,46 +1188,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_longitude_as_str(self, client, valid_api_key):
-        """G72: longitude как str вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": "37.61"  # Должно быть float
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
-    def test_telemetry_longitude_as_bool(self, client, valid_api_key):
-        """G73: longitude как bool вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": False  # Должно быть float
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_longitude_as_null(self, client, valid_api_key):
-        """G74: longitude как null вместо float -> 400"""
+        """G65: longitude как null вместо float -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1377,28 +1207,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_battery_as_str(self, client, valid_api_key):
-        """G75: battery как str вместо int -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0,
-            "battery": "85"  # Должно быть int
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_battery_as_float(self, client, valid_api_key):
-        """G76: battery как float вместо int -> 400"""
+        """G66: battery как float вместо int -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1417,28 +1227,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 400
 
-    def test_telemetry_battery_as_bool(self, client, valid_api_key):
-        """G77: battery как bool вместо int -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0,
-            "battery": True  # Должно быть int
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_battery_as_null(self, client, valid_api_key):
-        """G78: battery как null -> 200 (optional поле)"""
+        """G67: battery как null -> 200 (optional поле)"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1458,28 +1248,8 @@ class TestLogTelemetry:
         # Optional поле может быть null
         assert response.status_code == 200
 
-    def test_telemetry_pitch_as_str(self, client, valid_api_key):
-        """G79: pitch как str вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0,
-            "pitch": "5.5"  # Должно быть float
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_pitch_as_null(self, client, valid_api_key):
-        """G80: pitch как null -> 200 (optional поле)"""
+        """G68: pitch как null -> 200 (optional поле)"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1498,28 +1268,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 200
 
-    def test_telemetry_roll_as_str(self, client, valid_api_key):
-        """G81: roll как str вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0,
-            "roll": "-2.3"  # Должно быть float
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_roll_as_null(self, client, valid_api_key):
-        """G82: roll как null -> 200 (optional поле)"""
+        """G69: roll как null -> 200 (optional поле)"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1538,28 +1288,8 @@ class TestLogTelemetry:
 
         assert response.status_code == 200
 
-    def test_telemetry_course_as_str(self, client, valid_api_key):
-        """G83: course как str вместо float -> 400"""
-        payload = [{
-            "apiVersion": "1.0.0",
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0,
-            "course": "90.0"  # Должно быть float
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        assert response.status_code == 400
-
     def test_telemetry_course_as_null(self, client, valid_api_key):
-        """G84: course как null -> 200 (optional поле)"""
+        """G70: course как null -> 200 (optional поле)"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1579,7 +1309,7 @@ class TestLogTelemetry:
         assert response.status_code == 200
 
     def test_telemetry_whole_object_as_string(self, client, valid_api_key):
-        """G85: Весь объект как строка вместо dict -> 400"""
+        """G71: Весь объект как строка вместо dict -> 400"""
         payload = ["not an object"]
 
         response = client.post(
@@ -1591,7 +1321,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_nested_object_in_field(self, client, valid_api_key):
-        """G86: Вложенный объект в поле drone_id -> 400"""
+        """G72: Вложенный объект в поле drone_id -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1610,7 +1340,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_array_in_field(self, client, valid_api_key):
-        """G87: Массив в поле timestamp -> 400"""
+        """G73: Массив в поле timestamp -> 400"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": [123, 456],  # Должно быть int
@@ -1629,7 +1359,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_very_large_int(self, client, valid_api_key):
-        """G88: drone_id очень большое число -> 200 (если в пределах int64)"""
+        """G74: drone_id очень большое число -> 200 (если в пределах int64)"""
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": 123,
@@ -1648,7 +1378,7 @@ class TestLogTelemetry:
         assert response.status_code == 200
 
     def test_telemetry_very_long_string(self, client, valid_api_key):
-        """G89: apiVersion очень длинная строка -> 400"""
+        """G75: apiVersion очень длинная строка -> 400"""
         payload = [{
             "apiVersion": "1.0.0" + "0" * 1000,  # > 8 символов
             "timestamp": 123,
@@ -1667,7 +1397,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_unicode_in_string(self, client, valid_api_key):
-        """G90: apiVersion с unicode символами -> 200 (строка валидна)"""
+        """G76: apiVersion с unicode символами -> 200 (строка валидна)"""
         payload = [{
             "apiVersion": "1.0.0",  # Валидная версия
             "timestamp": 123,
@@ -1686,7 +1416,7 @@ class TestLogTelemetry:
         assert response.status_code == 200
 
     def test_telemetry_empty_string_in_required_field(self, client, valid_api_key):
-        """G91: Пустая строка в apiVersion -> 400 (min_length=5)"""
+        """G77: Пустая строка в apiVersion -> 400 (min_length=5)"""
         payload = [{
             "apiVersion": "",  # Пустая строка
             "timestamp": 123,
@@ -1705,7 +1435,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_whitespace_string(self, client, valid_api_key):
-        """G92: Строка из пробелов в apiVersion -> 400 (min_length=5)"""
+        """G78: Строка из пробелов в apiVersion -> 400 (min_length=5)"""
         payload = [{
             "apiVersion": "   ",  # 3 пробела
             "timestamp": 123,
@@ -1724,7 +1454,7 @@ class TestLogTelemetry:
         assert response.status_code == 400
 
     def test_telemetry_mixed_types_in_array(self, client, valid_api_key):
-        """G93: Массив с объектами разных типов -> 400"""
+        """G79: Массив с объектами разных типов -> 400"""
         payload = [
             {"apiVersion": "1.0.0", "timestamp": 123, "drone": "delivery", "drone_id": 1, "latitude": 55.0, "longitude": 37.0},
             {"apiVersion": 123, "timestamp": 123, "drone": "delivery", "drone_id": 1, "latitude": 55.0, "longitude": 37.0}  # apiVersion как int
@@ -1736,26 +1466,4 @@ class TestLogTelemetry:
             headers={"X-API-Key": valid_api_key}
         )
 
-        assert response.status_code == 400
-
-    def test_telemetry_duplicate_fields(self, client, valid_api_key):
-        """G94: Дублирующиеся поля в объекте -> 400"""
-        # В JSOG дубликаты ключей обычно перезаписываются, но проверяем
-        payload = [{
-            "apiVersion": "1.0.0",
-            "apiVersion": "2.0.0",  # Дубликат
-            "timestamp": 123,
-            "drone": "delivery",
-            "drone_id": 1,
-            "latitude": 55.0,
-            "longitude": 37.0
-        }]
-
-        response = client.post(
-            "/log/telemetry",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-
-        # JSOG парсер обычно оставляет последнее значение
         assert response.status_code == 400

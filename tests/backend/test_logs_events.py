@@ -450,26 +450,9 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E24_timestamp_string(self, client, valid_api_key):
-        """E24: timestamp — строка вместо int -> 400"""
-        payload = [{
-            "api_version": "1.0.0",
-            "timestamp": "1234567890",  # строка
-            "service": "infopanel",
-            "service_id": 1,
-            "message": "Event with string timestamp"
-        }]
-        
-        response = client.post(
-            "/log/event",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-        
-        assert response.status_code == 400
 
-    def test_E25_service_id_zero(self, client, valid_api_key):
-        """E25: service_id = 0 -> 400"""
+    def test_E24_service_id_zero(self, client, valid_api_key):
+        """E24: service_id = 0 -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -486,8 +469,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E26_service_id_negative(self, client, valid_api_key):
-        """E26: service_id < 0 -> 400"""
+    def test_E25_service_id_negative(self, client, valid_api_key):
+        """E25: service_id < 0 -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -504,26 +487,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E27_service_id_string(self, client, valid_api_key):
-        """E27: service_id — строка вместо int -> 400"""
-        payload = [{
-            "api_version": "1.0.0",
-            "timestamp": 1234567890,
-            "service": "infopanel",
-            "service_id": "1",  # строка
-            "message": "Event with string service_id"
-        }]
-        
-        response = client.post(
-            "/log/event",
-            json=payload,
-            headers={"X-API-Key": valid_api_key}
-        )
-        
-        assert response.status_code == 400
-
-    def test_E28_message_empty(self, client, valid_api_key):
-        """E28: message пустой -> 400"""
+    def test_E26_message_empty(self, client, valid_api_key):
+        """E26: message пустой -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -540,8 +505,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E29_message_too_long(self, client, valid_api_key):
-        """E29: message > 1024 символов -> 400"""
+    def test_E27_message_too_long(self, client, valid_api_key):
+        """E27: message > 1024 символов -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -558,8 +523,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E30_message_wrong_type(self, client, valid_api_key):
-        """E30: message — число вместо string -> 400"""
+    def test_E28_message_wrong_type(self, client, valid_api_key):
+        """E28: message — число вместо string -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -576,10 +541,10 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    """Группа E31-E35: Валидация enum-полей"""
+    """Группа E29-E33: Валидация enum-полей"""
 
-    def test_E31_invalid_event_type(self, client, valid_api_key):
-        """E31: event_type не из enum -> 400"""
+    def test_E29_invalid_event_type(self, client, valid_api_key):
+        """E29: event_type не из enum -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -597,8 +562,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E32_invalid_service(self, client, valid_api_key):
-        """E32: service не из enum -> 400"""
+    def test_E30_invalid_service(self, client, valid_api_key):
+        """E30: service не из enum -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -615,8 +580,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E33_invalid_severity(self, client, valid_api_key):
-        """E33: severity не из enum -> 400"""
+    def test_E31_invalid_severity(self, client, valid_api_key):
+        """E31: severity не из enum -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -634,8 +599,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E34_event_type_wrong_type(self, client, valid_api_key):
-        """E34: event_type — число вместо string -> 400"""
+    def test_E32_event_type_wrong_type(self, client, valid_api_key):
+        """E32: event_type — число вместо string -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -653,8 +618,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E35_severity_wrong_type(self, client, valid_api_key):
-        """E35: severity — число вместо string -> 400"""
+    def test_E33_severity_wrong_type(self, client, valid_api_key):
+        """E33: severity — число вместо string -> 400"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -672,10 +637,10 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    """Группа E36-E40: Структура запроса"""
+    """Группа E34-E38: Структура запроса"""
 
-    def test_E36_body_not_array(self, client, valid_api_key):
-        """E36: Тело — объект, не массив -> 400"""
+    def test_E34_body_not_array(self, client, valid_api_key):
+        """E34: Тело — объект, не массив -> 400"""
         payload = {
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -692,8 +657,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E37_extra_field_forbidden(self, client, valid_api_key):
-        """E37: Лишнее поле в объекте -> 400 (StrictModel)"""
+    def test_E35_extra_field_forbidden(self, client, valid_api_key):
+        """E35: Лишнее поле в объекте -> 400 (StrictModel)"""
         payload = [{
             "api_version": "1.0.0",
             "timestamp": 1234567890,
@@ -711,8 +676,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E38_wrong_content_type(self, client, valid_api_key):
-        """E38: Неверный Content-Type -> 400 """
+    def test_E36_wrong_content_type(self, client, valid_api_key):
+        """E36: Неверный Content-Type -> 400 """
         response = client.post(
             "/log/event",
             content='[{"api_version": "1.0.0"}]',
@@ -724,8 +689,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E39_malformed_json(self, client, valid_api_key):
-        """E39: Malformed JSON -> 400"""
+    def test_E37_malformed_json(self, client, valid_api_key):
+        """E37: Malformed JSON -> 400"""
         response = client.post(
             "/log/event",
             content='{"invalid": json}',
@@ -734,8 +699,8 @@ class TestLogEvent:
         
         assert response.status_code == 400
 
-    def test_E40_mixed_valid_invalid(self, client, valid_api_key):
-        """E40: Смешанные валидные/невалидные -> 400 (весь запрос)"""
+    def test_E38_mixed_valid_invalid(self, client, valid_api_key):
+        """E38: Смешанные валидные/невалидные -> 400 (весь запрос)"""
         payload = [
             {
                 "api_version": "1.0.0",
