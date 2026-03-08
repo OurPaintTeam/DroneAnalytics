@@ -112,7 +112,7 @@ class TestAuthRefresh:
 
     # ==================== ТЕСТЫ JWT-ВАЛИДАЦИИ ====================
 
-    def test_refresh_invalid_signature(self, client, valid_jwt_algoritm, valid_expires_in):
+    def test_refresh_invalid_signature(self, client, valid_jwt_algorithm, valid_expires_in):
         """R12: Токен с неверной подписью -> 401"""
         # Создаём токен с неправильной подписью
         fake_token = jwt.encode(
@@ -124,7 +124,7 @@ class TestAuthRefresh:
                 "jti": "fake_jti"
             },
             key="wrong_secret_key",  # Неправильный ключ
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -132,17 +132,17 @@ class TestAuthRefresh:
         })
         assert response.status_code == 401
 
-    def test_refresh_expired_token(self, client, valid_credentials, valid_jwt_algoritm, valid_secret_key):
+    def test_refresh_expired_token(self, client, valid_credentials, valid_jwt_algorithm, valid_secret_key):
         """R13: Просроченный refresh_token -> 401"""
         # Получаем валидный токен
         login = client.post("/auth/login", json=valid_credentials)
         refresh_token = login.json()["refresh_token"]
 
         # Декодируем и модифицируем время истечения
-        payload = jwt.decode(refresh_token, valid_secret_key, algorithms=valid_jwt_algoritm)
+        payload = jwt.decode(refresh_token, valid_secret_key, algorithms=valid_jwt_algorithm)
         payload["exp"] = int(time.time()) - 100  # В прошлом
 
-        expired_token = jwt.encode(payload, valid_secret_key, algorithm=valid_jwt_algoritm)
+        expired_token = jwt.encode(payload, valid_secret_key, algorithm=valid_jwt_algorithm)
 
         response = client.post("/auth/refresh", json={
             "refresh_token": expired_token
@@ -161,7 +161,7 @@ class TestAuthRefresh:
         })
         assert response.status_code == 401
     
-    def test_refresh_missing_jti_claim(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm, valid_expires_in):
+    def test_refresh_missing_jti_claim(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm, valid_expires_in):
         """R15: Токен без claim 'jti' -> 401"""
         
         # Создаём токен без обязательного claim 'jti'
@@ -174,7 +174,7 @@ class TestAuthRefresh:
                 # Нет 'jti'!
             },
             key=valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -182,7 +182,7 @@ class TestAuthRefresh:
         })
         assert response.status_code == 401
 
-    def test_refresh_missing_sub_claim(self, client, valid_credentials, valid_secret_key, valid_expires_in, valid_jwt_algoritm):
+    def test_refresh_missing_sub_claim(self, client, valid_credentials, valid_secret_key, valid_expires_in, valid_jwt_algorithm):
         """R16: Токен без claim 'sub' -> 401"""
         
         invalid_token = jwt.encode(
@@ -194,7 +194,7 @@ class TestAuthRefresh:
                 "jti": "test_jti"
             },
             key=valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -202,7 +202,7 @@ class TestAuthRefresh:
         })
         assert response.status_code == 401
 
-    def test_refresh_missing_exp_claim(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm):
+    def test_refresh_missing_exp_claim(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm):
         """R17: Токен без claim 'exp' -> 401"""
         
         invalid_token = jwt.encode(
@@ -214,7 +214,7 @@ class TestAuthRefresh:
                 "jti": "test_jti"
             },
             key=valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -222,7 +222,7 @@ class TestAuthRefresh:
         })
         assert response.status_code == 401
 
-    def test_refresh_missing_iat_claim(self, client, valid_credentials, valid_secret_key, valid_expires_in, valid_jwt_algoritm):
+    def test_refresh_missing_iat_claim(self, client, valid_credentials, valid_secret_key, valid_expires_in, valid_jwt_algorithm):
         """R18: Токен без claim 'iat' -> 401"""
         
         invalid_token = jwt.encode(
@@ -234,7 +234,7 @@ class TestAuthRefresh:
                 "jti": "test_jti"
             },
             key=valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -242,7 +242,7 @@ class TestAuthRefresh:
         })
         assert response.status_code == 401
 
-    def test_refresh_missing_type_claim(self, client, valid_credentials, valid_expires_in, valid_secret_key, valid_jwt_algoritm):
+    def test_refresh_missing_type_claim(self, client, valid_credentials, valid_expires_in, valid_secret_key, valid_jwt_algorithm):
         """R19: Токен без claim 'type' -> 401"""
         
         invalid_token = jwt.encode(
@@ -254,7 +254,7 @@ class TestAuthRefresh:
                 "jti": "test_jti"
             },
             key=valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -277,7 +277,7 @@ class TestAuthRefresh:
         })
         assert response.status_code == 400
     
-    def test_refresh_empty_subject(self, client, valid_credentials, valid_secret_key, valid_expires_in, valid_jwt_algoritm):
+    def test_refresh_empty_subject(self, client, valid_credentials, valid_secret_key, valid_expires_in, valid_jwt_algorithm):
         """R22: Токен с пустым subject (sub="") -> 401"""
         
         invalid_token = jwt.encode(
@@ -289,7 +289,7 @@ class TestAuthRefresh:
                 "jti": "test_jti"
             },
             key=valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
 
         response = client.post("/auth/refresh", json={
@@ -372,7 +372,7 @@ class TestAuthRefresh:
             content=str({"refresh_token": refresh_token}),  # Не JSON
             headers={"Content-Type": "text/plain"}
         )
-        # FastAPI может вернуть 400
+        
         assert response.status_code in [400, 422]
     
     def test_refresh_tokens_are_unique(self, client, valid_credentials):
@@ -405,7 +405,7 @@ class TestAuthRefresh:
         assert second_refresh != third_refresh
         assert first_access != third_access  # Даже через один шаг
 
-    def test_refresh_access_token_is_valid_jwt(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm):
+    def test_refresh_access_token_is_valid_jwt(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm):
         """R30: access_token в ответе — валидный JWT с правильными claim'ами"""
         
         # Логинимся и получаем refresh_token
@@ -432,7 +432,7 @@ class TestAuthRefresh:
         decoded = jwt.decode(
             access_token,
             valid_secret_key,
-            algorithms=valid_jwt_algoritm
+            algorithms=valid_jwt_algorithm
         )
         
         # 3. Проверяем обязательные поля
@@ -447,7 +447,7 @@ class TestAuthRefresh:
         assert isinstance(decoded["sub"], str) and len(decoded["sub"]) > 0, "sub должен быть непустой строкой"
         assert isinstance(decoded["exp"], int) and decoded["exp"] > decoded["iat"], "exp должен быть больше iat"
 
-    def test_refresh_refresh_token_is_valid_jwt(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm):
+    def test_refresh_refresh_token_is_valid_jwt(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm):
         """R31: refresh_token в ответе — валидный JWT с правильными claim'ами"""
         
         # Логинимся и получаем refresh_token
@@ -474,7 +474,7 @@ class TestAuthRefresh:
         decoded = jwt.decode(
             new_refresh_token,
             valid_secret_key,
-            algorithms=valid_jwt_algoritm
+            algorithms=valid_jwt_algorithm
         )
         
         # 3. Проверяем обязательные поля

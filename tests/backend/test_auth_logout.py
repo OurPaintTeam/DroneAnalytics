@@ -159,7 +159,7 @@ class TestAuthLogout:
 
     """Тесты валидности и соответствия токенов"""
 
-    def test_logout_expired_access_token(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm, valid_expires_in):
+    def test_logout_expired_access_token(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm, valid_expires_in):
         """
         L11: Просроченный access_token -> 401
         
@@ -180,7 +180,7 @@ class TestAuthLogout:
         expired_token = jwt.encode(
             expired_payload,
             valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
         
         response = client.post(
@@ -192,7 +192,7 @@ class TestAuthLogout:
         assert response.status_code == 401
         assert "expired" in response.json()["message"].lower()
 
-    def test_logout_expired_refresh_token(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm, valid_ref_in):
+    def test_logout_expired_refresh_token(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm, valid_ref_in):
         """
         L12: Просроченный refresh_token -> 401
         
@@ -213,7 +213,7 @@ class TestAuthLogout:
         expired_token = jwt.encode(
             expired_payload,
             valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
         
         response = client.post(
@@ -225,7 +225,7 @@ class TestAuthLogout:
         assert response.status_code == 401
         assert "expired" in response.json()["message"].lower()
 
-    def test_logout_mismatched_tokens(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm, valid_expires_in):
+    def test_logout_mismatched_tokens(self, client, valid_credentials, valid_secret_key, valid_jwt_algorithm, valid_expires_in):
         """
         L13: Токены от разных пользователей -> 401
         
@@ -247,7 +247,7 @@ class TestAuthLogout:
         other_user_token = jwt.encode(
             other_user_payload,
             valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
         
         # Пытаемся сделать logout: refresh от user1, access от other_user
@@ -306,7 +306,7 @@ class TestAuthLogout:
         assert response.status_code == 401
         assert "Invalid token" in response.json()["message"]
 
-    def test_logout_access_token_without_sub_claim(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm):
+    def test_logout_access_token_without_sub_claim(self, client, valid_credentials, valid_expires_in, valid_secret_key, valid_jwt_algorithm):
         """
         L16: access_token без claim 'sub' -> 401
         
@@ -320,14 +320,14 @@ class TestAuthLogout:
         payload_without_sub = {
             "type": "access",
             "iat": current_time,
-            "exp": current_time + 900,
+            "exp": current_time + valid_expires_in,
             "jti": "no_sub_jti_22222"
             # Нет поля 'sub'!
         }
         token_without_sub = jwt.encode(
             payload_without_sub,
             valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
         
         response = client.post(
@@ -339,7 +339,7 @@ class TestAuthLogout:
         assert response.status_code == 401
         assert "Invalid" in response.json()["message"]
 
-    def test_logout_refresh_token_without_sub_claim(self, client, valid_credentials, valid_secret_key, valid_jwt_algoritm):
+    def test_logout_refresh_token_without_sub_claim(self, client, valid_credentials, valid_ref_in, valid_secret_key, valid_jwt_algorithm):
         """
         L17: refresh_token без claim 'sub' -> 401
         
@@ -353,14 +353,14 @@ class TestAuthLogout:
         payload_without_sub = {
             "type": "refresh",
             "iat": current_time,
-            "exp": current_time + 604800,
+            "exp": current_time + valid_ref_in,
             "jti": "no_sub_refresh_jti_33333"
             # Нет поля 'sub'!
         }
         token_without_sub = jwt.encode(
             payload_without_sub,
             valid_secret_key,
-            algorithm=valid_jwt_algoritm
+            algorithm=valid_jwt_algorithm
         )
         
         response = client.post(

@@ -1,53 +1,76 @@
 import pytest
-import sys
-from pathlib import Path
 from fastapi.testclient import TestClient
 
-# Добавляем backend в PYTHONPATH, чтобы импортировать app
+# Импорт тестовых данных
+from .test_backend_config import (
+    TEST_AUTH_USERNAME,
+    TEST_AUTH_PASSWORD,
+    TEST_API_KEY,
+    TEST_SECRET_KEY,
+    TEST_JWT_ALGORITHM,
+    TEST_ACCESS_TTL_SECONDS,
+    TEST_REFRESH_TTL_SECONDS,
+    TEST_CORS_ORIGINS,
+    TEST_PASSWORD_SALT,
+)
 
-from main import app
+
+@pytest.fixture(scope="function", autouse=True)
+def override_env_vars(monkeypatch):
+    """Переопределяет переменные окружения на тестовые"""
+    
+    # Авторизация
+    monkeypatch.setenv("DRONE_AUTH_USERNAME", TEST_AUTH_USERNAME)
+    monkeypatch.setenv("DRONE_AUTH_PASSWORD", TEST_AUTH_PASSWORD)
+    monkeypatch.setenv("DRONE_API_KEY", TEST_API_KEY)
+    
+    # JWT и безопасность
+    monkeypatch.setenv("DRONE_SECRET_KEY", TEST_SECRET_KEY.decode("utf-8"))
+    monkeypatch.setenv("DRONE_PASSWORD_SALT", TEST_PASSWORD_SALT)
+    monkeypatch.setenv("DRONE_ACCESS_TTL_SECONDS", str(TEST_ACCESS_TTL_SECONDS))
+    monkeypatch.setenv("DRONE_REFRESH_TTL_SECONDS", str(TEST_REFRESH_TTL_SECONDS))
+    
+    # CORS
+    monkeypatch.setenv("DRONE_CORS_ORIGINS", ",".join(TEST_CORS_ORIGINS))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def client():
-    """TestClient для запросов к приложению без запуска сервера"""
+    """
+    TestClient для запросов к приложению.
+    """
+    from main import app
+    
     with TestClient(app) as test_client:
         yield test_client
 
 
+# Фикстуры с тестовыми значениями, берем из test_backend_config.py для удобства
 @pytest.fixture(scope="module")
 def valid_api_key():
-    """API-ключ из config.py для тестов /log/*"""
-    from app.config import API_KEY
-    return API_KEY
+    return TEST_API_KEY
 
 
 @pytest.fixture(scope="module")
 def valid_credentials():
-    """Логин/пароль из config.py для тестов авторизации"""
-    from app.config import AUTH_USERNAME, AUTH_PASSWORD
-    return {"username": AUTH_USERNAME, "password": AUTH_PASSWORD}
+    return {"username": TEST_AUTH_USERNAME, "password": TEST_AUTH_PASSWORD}
+
 
 @pytest.fixture(scope="module")
 def valid_expires_in():
-    """Время на expires_in"""
-    from app.config import ACCESS_TTL_SECONDS
-    return ACCESS_TTL_SECONDS
+    return TEST_ACCESS_TTL_SECONDS
+
 
 @pytest.fixture(scope="module")
 def valid_ref_in():
-    """Время на refresh token"""
-    from app.config import REFRESH_TTL_SECONDS
-    return REFRESH_TTL_SECONDS
+    return TEST_REFRESH_TTL_SECONDS
+
 
 @pytest.fixture(scope="module")
 def valid_secret_key():
-    """Ключ подписи"""
-    from app.config import SECRET_KEY
-    return SECRET_KEY
+    return TEST_SECRET_KEY
+
 
 @pytest.fixture(scope="module")
-def valid_jwt_algoritm():
-    """Алгоритм для jwt"""
-    from app.security import JWT_ALGORITHM
-    return JWT_ALGORITHM
+def valid_jwt_algorithm():
+    return TEST_JWT_ALGORITHM
