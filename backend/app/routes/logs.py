@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 
-from app.dependencies import require_api_key
+from app.dependencies import require_api_key, require_bearer_payload
 from app.models import BasicLogItem, EventLogItem, TelemetryLogItem
 from app.config import ELASTIC_URL
 
@@ -59,20 +59,32 @@ def _get_logs_from_index(index: str, start: int, size: int):
             json={
                 "from": start,
                 "size": size,
-                "sort": [{"timestamp": {"order": "desc"}}]
+                "sort": [{"timestamp": {"order": "desc"}}],
             },
-            timeout=5
+            timeout=5,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service is temporarily unavailable.",
         )
 
-        resp.raise_for_status()
+    if resp.status_code >= 300:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service returned an internal error.",
+        )
 
+    try:
         data = resp.json()
-        hits = data.get("hits", {}).get("hits", [])
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service returned an invalid response.",
+        )
 
-        return [hit["_source"] for hit in hits]
-
-    except requests.RequestException as exc:
-        raise HTTPException(502, f"Elasticsearch error: {exc}")
+    hits = data.get("hits", {}).get("hits", [])
+    return [hit["_source"] for hit in hits]
 
 @router.post("/telemetry")
 def ingest_telemetry(
@@ -117,6 +129,7 @@ def ingest_event(
 
     return {"accepted": indexed}
 
+
 @router.get(
     "/basic",
     response_model=list[BasicLogItem],
@@ -126,7 +139,7 @@ def ingest_event(
 def get_basic(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: str = Depends(require_api_key)
+    _: dict = Depends(require_bearer_payload)
 ):
     start = (page - 1) * limit
     return _get_logs_from_index("basic", start, limit)
@@ -141,7 +154,7 @@ def get_basic(
 def get_telemetry(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: str = Depends(require_api_key)
+    _: dict = Depends(require_bearer_payload)
 ):
     start = (page - 1) * limit
     return _get_logs_from_index("telemetry", start, limit)
@@ -156,10 +169,11 @@ def get_telemetry(
 def get_event(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: str = Depends(require_api_key)
+    _: dict = Depends(require_bearer_payload)
 ):
     start = (page - 1) * limit
     return _get_logs_from_index("event", start, limit)
+
 
 @router.get(
     "/safety",
@@ -170,7 +184,7 @@ def get_event(
 def get_safety(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: str = Depends(require_api_key)
+    _: dict = Depends(require_bearer_payload)
 ):
     start = (page - 1) * limit
     return _get_logs_from_index("safety", start, limit)
