@@ -393,5 +393,4 @@ class TestLogBasic:
             headers={"X-API-Key": valid_api_key}
         )
         
-        # Может быть 200 (успех)
-        assert response.status_code in [200]
+        assert response.status_code == 200

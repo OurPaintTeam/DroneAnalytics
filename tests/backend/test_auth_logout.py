@@ -445,8 +445,7 @@ class TestAuthLogout:
             }
         )
         
-        # FastAPI может вернуть 400
-        assert response.status_code in [400, 422]
+        assert response.status_code==400
 
     def test_logout_malformed_json(self, client, valid_credentials):
         """

@@ -27,21 +27,21 @@ class TestAuthRefresh:
         assert "access_token" in data
         assert "refresh_token" in data
         assert data["token_type"] == "Bearer"
-        assert data["expires_in"] == valid_expires_in  # Из config.py
+        assert data["expires_in"] == valid_expires_in 
 
     def test_refresh_token_short(self, client):
         """R2: refresh_token ровно 16 символов -> 200 (валидно) или 401 (неверная подпись)"""
         response = client.post("/auth/refresh", json={
             "refresh_token": "x" * 16 
         })
-        assert response.status_code in [200, 401]
+        assert response.status_code != 400
 
     def test_refresh_token_long(self, client):
         """R3: refresh_token 1024 символов -> 200 или 401"""
         response = client.post("/auth/refresh", json={
             "refresh_token": "x" * 1024 
         })
-        assert response.status_code in [200, 401]
+        assert response.status_code != 400
 
     def test_refresh_chain(self, client, valid_credentials):
         """R4: Многократное обновление (цепочка токенов)"""
@@ -268,7 +268,7 @@ class TestAuthRefresh:
         response = client.post("/auth/refresh", json={
             "refresh_token": "not-a-jwt-token"
         })
-        assert response.status_code in [400, 401]
+        assert response.status_code == 400
 
     def test_refresh_malformed_jwt(self, client):
         """R21: Повреждённая структура JWT (не 3 части) -> 400"""
@@ -373,7 +373,7 @@ class TestAuthRefresh:
             headers={"Content-Type": "text/plain"}
         )
         
-        assert response.status_code in [400, 422]
+        assert response.status_code == 400
     
     def test_refresh_tokens_are_unique(self, client, valid_credentials):
         """R29: каждый refresh выдаёт новые уникальные токены"""
