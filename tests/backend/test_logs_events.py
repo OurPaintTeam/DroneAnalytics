@@ -712,7 +712,7 @@ class TestLogEvent:
         assert response.status_code == 400
 
     def test_E38_wrong_content_type(self, client, valid_api_key):
-        """E38: Неверный Content-Type -> 400 или 415"""
+        """E38: Неверный Content-Type -> 400 """
         response = client.post(
             "/log/event",
             content='[{"api_version": "1.0.0"}]',
@@ -722,7 +722,7 @@ class TestLogEvent:
             }
         )
         
-        assert response.status_code in [400, 415]
+        assert response.status_code == 400
 
     def test_E39_malformed_json(self, client, valid_api_key):
         """E39: Malformed JSON -> 400"""

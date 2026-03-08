@@ -1280,9 +1280,7 @@ class TestLogTelemetry:
             headers={"X-API-Key": valid_api_key}
         )
 
-        # Pydantic может сконвертировать int -> float
-        # Если strict=True -> 400, иначе -> 200
-        assert response.status_code in [200, 400]
+        assert response.status_code == 400
 
     def test_telemetry_latitude_as_bool(self, client, valid_api_key):
         """G70: latitude как bool вместо float -> 400"""
@@ -1647,8 +1645,7 @@ class TestLogTelemetry:
             headers={"X-API-Key": valid_api_key}
         )
 
-        # Зависит от реализации, но обычно 200
-        assert response.status_code in [200, 400]
+        assert response.status_code == 200
 
     def test_telemetry_very_long_string(self, client, valid_api_key):
         """G89: apiVersion очень длинная строка -> 400"""
