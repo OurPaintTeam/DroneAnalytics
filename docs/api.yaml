@@ -169,6 +169,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
     get:
       tags: [ log ]
       summary: get telemetry logs
@@ -219,6 +221,8 @@ paths:
                       type: number
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
   /log/basic:
     post:
       security:
@@ -249,6 +253,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
     get:
       tags: [ log ]
       summary: get basic logs
@@ -285,6 +291,8 @@ paths:
                       $ref: '#/components/schemas/message'
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
   /log/event:
     post:
       security:
@@ -326,6 +334,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         400:
           $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
     get:
       tags: [ log ]
       summary: get event logs
@@ -371,6 +381,8 @@ paths:
                       $ref: '#/components/schemas/message'
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
   /log/safety:
     get:
       tags: [ log ]
@@ -417,6 +429,8 @@ paths:
                       $ref: '#/components/schemas/message'
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
 
 
 components:
@@ -430,6 +444,13 @@ components:
 
     UnauthorizedError:
       description: Unauthorized - authentication required or token invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    LogStorageError:
+      description: Bad Gateway - log storage service unavailable or returned an error
       content:
         application/json:
           schema:
