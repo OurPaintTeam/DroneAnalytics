@@ -91,7 +91,11 @@ def ingest_telemetry(
     payload: list[TelemetryLogItem] = Body(..., min_length=1, max_length=1000),
     _: str = Depends(require_api_key),
 ) -> dict[str, int]:
-    docs = [item.model_dump() for item in payload]
+    docs = []
+    for item in payload:
+        doc = item.model_dump()
+        doc.pop("apiVersion", None)
+        docs.append(doc)
     indexed = _bulk_index("telemetry", docs)
     return {"accepted": indexed}
 
@@ -116,7 +120,9 @@ def ingest_event(
 
     for item in payload:
         doc = item.model_dump()
-        if doc.get("event_type") == "safety_event":
+        event_type = doc.pop("event_type", None)
+        doc.pop("api_version", None)
+        if event_type == "safety_event":
             safety_docs.append(doc)
         else:
             event_docs.append(doc)
