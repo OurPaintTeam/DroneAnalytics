@@ -12,7 +12,7 @@ def shutdown(signum, frame):
 def main():
     ELASTIC_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
 
-    f_index = {
+    telemetry = {
         "settings": {
             "number_of_shards": 1,
             "number_of_replicas": 0
@@ -32,7 +32,7 @@ def main():
         }
     }
 
-    s_index = {
+    basic = {
         "settings": {
             "number_of_shards": 1,
             "number_of_replicas": 0
@@ -45,23 +45,7 @@ def main():
         }
     }
 
-    t_index = {
-        "settings": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0
-        },
-        "mappings": {
-            "properties": {
-                "timestamp": {"type": "date", "format": "epoch_millis"},
-                "service": {"type": "keyword"},
-                "service_id": { "type": "short", "null_value": 1 },
-                "severity": {"type": "keyword"},
-                "message": {"type": "text", "analyzer": "standard"}
-            }
-        }
-    }
-
-    fd_index = {
+    event = {
         "settings": {
             "number_of_shards": 1,
             "number_of_replicas": 0
@@ -77,7 +61,23 @@ def main():
         }
     }
 
-    indexes = [(f_index, "telemetry"), (s_index, "basic"), (t_index, "event"), (fd_index, "safety")]
+    safety = {
+        "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 0
+        },
+        "mappings": {
+            "properties": {
+                "timestamp": {"type": "date", "format": "epoch_millis"},
+                "service": {"type": "keyword"},
+                "service_id": { "type": "short", "null_value": 1 },
+                "severity": {"type": "keyword"},
+                "message": {"type": "text", "analyzer": "standard"}
+            }
+        }
+    }
+
+    indexes = [(telemetry, "telemetry"), (basic, "basic"), (event, "event"), (safety, "safety")]
 
     print("Waiting for ElasticSearch...")
     time.sleep(60)
@@ -102,7 +102,7 @@ def main():
         for index, name in indexes:
             request = requests.put(
                 f"{ELASTIC_URL}/{name}",
-                json=f_index,
+                json=index,
                 timeout=10
             )
             if request.status_code >= 200 and request.status_code < 300:
