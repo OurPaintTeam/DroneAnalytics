@@ -18,3 +18,4 @@ PASSWORD_SALT = os.getenv("DRONE_PASSWORD_SALT", b64url_encode(hashlib.sha256(SE
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 CORS_ORIGINS = [x.strip() for x in os.getenv("DRONE_CORS_ORIGINS", "http://localhost:5173").split(",") if x.strip()]
+ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
