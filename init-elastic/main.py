@@ -12,7 +12,7 @@ def shutdown(signum, frame):
 def main():
     ELASTIC_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
 
-    f_index = {
+    telemetry = {
         "settings": {
             "number_of_shards": 1,
             "number_of_replicas": 0
@@ -23,21 +23,22 @@ def main():
                 "drone": { "type": "keyword" },
                 "drone_id": { "type": "short", "null_value": 1 },
                 "battery": { "type": "short", "null_value": 100 },
-                "pitch": {"type": "short", "null_value": "0"},
-                "roll": {"type": "short", "null_value": "0"},
-                "course": {"type": "short", "null_value": "0"},
+                "pitch": {"type": "double", "null_value": "0"},
+                "roll": {"type": "double", "null_value": "0"},
+                "course": {"type": "double", "null_value": "0"},
                 "latitude": {"type": "double"},
                 "longitude": {"type": "double"},
             }
         }
     }
 
-    s_index = {
+    basic = {
         "settings": {
             "number_of_shards": 1,
             "number_of_replicas": 0
         },
         "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "timestamp": {"type": "date", "format": "epoch_millis"},
                 "message": {"type": "text", "analyzer": "standard"}
@@ -45,28 +46,13 @@ def main():
         }
     }
 
-    t_index = {
+    event = {
         "settings": {
             "number_of_shards": 1,
             "number_of_replicas": 0
         },
         "mappings": {
-            "properties": {
-                "timestamp": {"type": "date", "format": "epoch_millis"},
-                "service": {"type": "keyword"},
-                "service_id": { "type": "short", "null_value": 1 },
-                "severity": {"type": "keyword"},
-                "message": {"type": "text", "analyzer": "standard"}
-            }
-        }
-    }
-
-    fd_index = {
-        "settings": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0
-        },
-        "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "timestamp": {"type": "date", "format": "epoch_millis"},
                 "service": {"type": "keyword"},
@@ -77,10 +63,26 @@ def main():
         }
     }
 
-    indexes = [(f_index, "telemetry"), (s_index, "basic"), (t_index, "event"), (fd_index, "safety")]
+    safety = {
+        "settings": {
+            "number_of_shards": 1,
+            "number_of_replicas": 0
+        },
+        "mappings": {
+            "dynamic": "strict",
+            "properties": {
+                "timestamp": {"type": "date", "format": "epoch_millis"},
+                "service": {"type": "keyword"},
+                "service_id": { "type": "short", "null_value": 1 },
+                "severity": {"type": "keyword"},
+                "message": {"type": "text", "analyzer": "standard"}
+            }
+        }
+    }
+
+    indexes = [(telemetry, "telemetry"), (basic, "basic"), (event, "event"), (safety, "safety")]
 
     print("Waiting for ElasticSearch...")
-    time.sleep(60)
     print("Trying to connect to ElasticSearch...")
     ok = False
     for i in range(1000):
@@ -92,8 +94,9 @@ def main():
                 ok = True
                 break
         except:
+            time.sleep(5)
             continue
-        time.sleep(1)
+        time.sleep(5)
     if not ok:
         print("Error. I can't connect to ElasticSearch.")
         sys.exit(1)
@@ -102,7 +105,7 @@ def main():
         for index, name in indexes:
             request = requests.put(
                 f"{ELASTIC_URL}/{name}",
-                json=f_index,
+                json=index,
                 timeout=10
             )
             if request.status_code >= 200 and request.status_code < 300:

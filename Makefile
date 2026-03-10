@@ -18,5 +18,7 @@ clear:
 
 healthcheck: prod clear
 
-tests: healthcheck
-	echo "This will happen when Ivan is a good boy."
+.PHONY: tests
+
+tests:
+	cd tests && uv sync && uv run pytest
