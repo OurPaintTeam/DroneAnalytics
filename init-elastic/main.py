@@ -23,9 +23,9 @@ def main():
                 "drone": { "type": "keyword" },
                 "drone_id": { "type": "short", "null_value": 1 },
                 "battery": { "type": "short", "null_value": 100 },
-                "pitch": {"type": "short", "null_value": "0"},
-                "roll": {"type": "short", "null_value": "0"},
-                "course": {"type": "short", "null_value": "0"},
+                "pitch": {"type": "double", "null_value": "0"},
+                "roll": {"type": "double", "null_value": "0"},
+                "course": {"type": "double", "null_value": "0"},
                 "latitude": {"type": "double"},
                 "longitude": {"type": "double"},
             }
@@ -80,7 +80,6 @@ def main():
     indexes = [(telemetry, "telemetry"), (basic, "basic"), (event, "event"), (safety, "safety")]
 
     print("Waiting for ElasticSearch...")
-    time.sleep(60)
     print("Trying to connect to ElasticSearch...")
     ok = False
     for i in range(1000):
@@ -92,8 +91,9 @@ def main():
                 ok = True
                 break
         except:
+            time.sleep(5)
             continue
-        time.sleep(1)
+        time.sleep(5)
     if not ok:
         print("Error. I can't connect to ElasticSearch.")
         sys.exit(1)
