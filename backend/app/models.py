@@ -42,7 +42,7 @@ class TelemetryLogItem(StrictModel):
 
 
 class EventLogItem(StrictModel):
-    api_version: str = Field(min_length=5, max_length=8)
+    apiVersion: str = Field(min_length=5, max_length=8)
     timestamp: int = Field(ge=0)
     event_type: Literal["event", "safety_event"] | None = None
     service: Literal[

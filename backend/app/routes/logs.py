@@ -121,7 +121,7 @@ def ingest_event(
     for item in payload:
         doc = item.model_dump()
         event_type = doc.pop("event_type", None)
-        doc.pop("api_version", None)
+        doc.pop("apiVersion", None)
         if event_type == "safety_event":
             safety_docs.append(doc)
         else:

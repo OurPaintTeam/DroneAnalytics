@@ -7,3 +7,4 @@ uv.lock
 __pycache__
 .dockerignore
 Dockerfile
+droneanalytics_backend.egg-info

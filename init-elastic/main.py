@@ -38,6 +38,7 @@ def main():
             "number_of_replicas": 0
         },
         "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "timestamp": {"type": "date", "format": "epoch_millis"},
                 "message": {"type": "text", "analyzer": "standard"}
@@ -51,6 +52,7 @@ def main():
             "number_of_replicas": 0
         },
         "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "timestamp": {"type": "date", "format": "epoch_millis"},
                 "service": {"type": "keyword"},
@@ -67,6 +69,7 @@ def main():
             "number_of_replicas": 0
         },
         "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "timestamp": {"type": "date", "format": "epoch_millis"},
                 "service": {"type": "keyword"},
