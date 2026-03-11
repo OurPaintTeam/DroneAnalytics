@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 
+from app.audit import AUDIT_SERVICE, audit_event
 from app.dependencies import require_api_key, require_bearer_payload
 from app.models import BasicLogItem, EventLogItem, TelemetryLogItem, TelemetryLogResponse, EventLogResponse
 from app.config import ELASTIC_URL
@@ -31,13 +32,15 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
             headers={"Content-Type": "application/x-ndjson"},
             timeout=5,
         )
-    except requests.RequestException as exc:
+    except requests.RequestException:
+        audit_event("error", f"action=bulk_index status=failure index={index} reason=connection_error")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service is temporarily unavailable.",
         )
 
     if resp.status_code >= 300:
+        audit_event("error", f"action=bulk_index status=failure index={index} reason=upstream_error http_status={resp.status_code}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service returned an internal error.",
@@ -46,6 +49,7 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
     try:
         payload = resp.json()
     except ValueError:
+        audit_event("error", f"action=bulk_index status=failure index={index} reason=invalid_response")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service returned an invalid response.",
@@ -56,6 +60,7 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
 
     items = payload.get("items", [])
     if not isinstance(items, list):
+        audit_event("error", f"action=bulk_index status=failure index={index} reason=invalid_items_format")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service returned an invalid response.",
@@ -69,27 +74,42 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
         if isinstance(index_result, dict) and index_result.get("status", 500) < 300:
             indexed += 1
 
+    if indexed == 0:
+        audit_event("error", f"action=bulk_index status=failure index={index} accepted=0 total={len(docs)}")
+    elif indexed < len(docs):
+        audit_event("warning", f"action=bulk_index status=partial index={index} accepted={indexed} total={len(docs)}")
+
     return indexed
 
 
-def _get_logs_from_index(index: str, start: int, size: int):
+def _get_logs_from_index(index: str, start: int, size: int, exclude_service: str | None = None):
+    query_body: dict = {
+        "from": start,
+        "size": size,
+        "sort": [{"timestamp": {"order": "desc"}}],
+    }
+    if exclude_service:
+        query_body["query"] = {
+            "bool": {
+                "must_not": [{"term": {"service": exclude_service}}]
+            }
+        }
+
     try:
         resp = requests.post(
             f"{ELASTIC_URL}/{index}/_search",
-            json={
-                "from": start,
-                "size": size,
-                "sort": [{"timestamp": {"order": "desc"}}],
-            },
+            json=query_body,
             timeout=5,
         )
-    except requests.RequestException as exc:
+    except requests.RequestException:
+        audit_event("error", f"action=query status=failure index={index} reason=connection_error")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service is temporarily unavailable.",
         )
 
     if resp.status_code >= 300:
+        audit_event("error", f"action=query status=failure index={index} reason=upstream_error http_status={resp.status_code}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service returned an internal error.",
@@ -98,6 +118,7 @@ def _get_logs_from_index(index: str, start: int, size: int):
     try:
         data = resp.json()
     except ValueError:
+        audit_event("error", f"action=query status=failure index={index} reason=invalid_response")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Log storage service returned an invalid response.",
@@ -121,6 +142,7 @@ def ingest_telemetry(
         doc.pop("apiVersion", None)
         docs.append(doc)
     indexed = _bulk_index("telemetry", docs)
+    audit_event("info", f"action=ingest_telemetry status=success received={len(payload)} validated={len(docs)} accepted={indexed}")
     return {"accepted": indexed}
 
 
@@ -137,6 +159,7 @@ def ingest_basic(
             continue
         docs.append(valid_item.model_dump())
     indexed = _bulk_index("basic", docs)
+    audit_event("info", f"action=ingest_basic status=success received={len(payload)} validated={len(docs)} accepted={indexed}")
     return {"accepted": indexed}
 
 
@@ -167,6 +190,10 @@ def ingest_event(
     if safety_docs:
         indexed += _bulk_index("safety", safety_docs)
 
+    audit_event(
+        "info",
+        f"action=ingest_event status=success received={len(payload)} accepted={indexed} event_count={len(event_docs)} safety_count={len(safety_docs)}",
+    )
     return {"accepted": indexed}
 
 
@@ -212,7 +239,7 @@ def get_event(
     _: dict = Depends(require_bearer_payload)
 ):
     start = (page - 1) * limit
-    return _get_logs_from_index("event", start, limit)
+    return _get_logs_from_index("event", start, limit, exclude_service=AUDIT_SERVICE)
 
 
 @router.get(
@@ -227,4 +254,4 @@ def get_safety(
     _: dict = Depends(require_bearer_payload)
 ):
     start = (page - 1) * limit
-    return _get_logs_from_index("safety", start, limit)
+    return _get_logs_from_index("safety", start, limit, exclude_service=AUDIT_SERVICE)
