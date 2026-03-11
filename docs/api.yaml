@@ -118,7 +118,30 @@ paths:
               minItems: 1
               maxItems: 1000
               items:
-                $ref: '#/components/schemas/TelemetryLog'
+                type: object
+                additionalProperties: false
+                properties:
+                  apiVersion:
+                    $ref: '#/components/schemas/apiVersion'
+                  timestamp:
+                    $ref: '#/components/schemas/timestamp'
+                  drone:
+                    $ref: '#/components/schemas/drone'
+                  drone_id:
+                    $ref: '#/components/schemas/id'
+                  battery:
+                    $ref: '#/components/schemas/battery'
+                  pitch:
+                    $ref: '#/components/schemas/pitch'
+                  roll:
+                    $ref: '#/components/schemas/roll'
+                  course:
+                    $ref: '#/components/schemas/course'
+                  latitude:
+                    $ref: '#/components/schemas/latitude'
+                  longitude:
+                    $ref: '#/components/schemas/longitude'
+                required: [ timestamp, drone, drone_id, latitude, longitude, apiVersion ]
       responses:
         200:
           description: Logs accepted successfully
@@ -155,7 +178,28 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TelemetryLog'
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    timestamp:
+                      $ref: '#/components/schemas/timestamp'
+                    drone:
+                      $ref: '#/components/schemas/drone'
+                    drone_id:
+                      $ref: '#/components/schemas/id'
+                    battery:
+                      $ref: '#/components/schemas/battery'
+                    pitch:
+                      $ref: '#/components/schemas/pitch'
+                    roll:
+                      $ref: '#/components/schemas/roll'
+                    course:
+                      $ref: '#/components/schemas/course'
+                    latitude:
+                      $ref: '#/components/schemas/latitude'
+                    longitude:
+                      $ref: '#/components/schemas/longitude'
+                  required: [ timestamp, drone, drone_id, latitude, longitude ]
         401:
           $ref: '#/components/responses/UnauthorizedError'
         502:
@@ -426,7 +470,42 @@ components:
       description: Type of service
       enum: ["delivery", "queen", "inspector", "agriculture", "GCS", "aggregator", "insurance", "regulator",
              "dronePort", "OrAT_drones", "operator", "SITL", "Gazebo", "infopanel", "registry"]
-
+    battery:
+      type: integer
+      format: int8
+      description: battery level in percents
+      minimum: 0
+      maximum: 100
+    pitch:
+      type: number
+      format: double
+      description: pitch clockwise angle in degrees
+      minimum: -90
+      maximum: 90
+    roll:
+      type: number
+      format: double
+      description: roll clockwise angle in degrees
+      minimum: -180
+      maximum: 180
+    course:
+      type: number
+      format: double
+      description: angle between magnetic north and aircraft axis
+      minimum: 0
+      maximum: 360
+    latitude:
+      type: number
+      format: double
+      description: + north / - south latitude
+      minimum: -90
+      maximum: 90
+    longitude:
+      type: number
+      format: double
+      description: + east / - west longitude
+      minimum: -180
+      maximum: 180
     id:
       type: integer
       minimum: 1
@@ -454,63 +533,10 @@ components:
         message:
           $ref: '#/components/schemas/message'
       required: [timestamp, message]
-
-    TelemetryLog:
-      type: object
-      additionalProperties: false
-      properties:
-        apiVersion:
-          $ref: '#/components/schemas/apiVersion'
-        timestamp:
-          $ref: '#/components/schemas/timestamp'
-        drone:
-          $ref: '#/components/schemas/drone'
-        drone_id:
-          $ref: '#/components/schemas/id'
-        battery:
-          type: integer
-          format: int8
-          description: battery level in percents
-          minimum: 0
-          maximum: 100
-        pitch:
-          type: number
-          format: double
-          description: pitch clockwise angle in degrees
-          minimum: -90
-          maximum: 90
-        roll:
-          type: number
-          format: double
-          description: roll clockwise angle in degrees
-          minimum: -180
-          maximum: 180
-        course:
-          type: number
-          format: double
-          description: angle between magnetic north and aircraft axis
-          minimum: 0
-          maximum: 360
-        latitude:
-          type: number
-          format: double
-          description: + north / - south latitude
-          minimum: -90
-          maximum: 90
-        longitude:
-          type: number
-          format: double
-          description: + east / - west longitude
-          minimum: -180
-          maximum: 180
-      required: [timestamp, drone, drone_id, latitude, longitude, apiVersion]
-
     GetEventLog:
       type: object
       additionalProperties: false
       properties:
-        apiVersion:
-          $ref: '#/components/schemas/apiVersion'
         timestamp:
           $ref: '#/components/schemas/timestamp'
         service:
@@ -521,7 +547,7 @@ components:
           $ref: '#/components/schemas/severity'
         message:
           $ref: '#/components/schemas/message'
-      required: [timestamp, service, service_id, message, apiVersion]
+      required: [timestamp, service, service_id, message]
 
     TokenPair:
       type: object
