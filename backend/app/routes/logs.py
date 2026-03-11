@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 
 from app.dependencies import require_api_key, require_bearer_payload
-from app.models import BasicLogItem, EventLogItem, TelemetryLogItem
+from app.models import BasicLogItem, EventLogItem, TelemetryLogItem, TelemetryLogResponse, EventLogResponse
 from app.config import ELASTIC_URL
 
 
