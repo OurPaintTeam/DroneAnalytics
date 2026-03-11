@@ -65,3 +65,48 @@ class EventLogItem(StrictModel):
     service_id: int = Field(ge=1)
     severity: Literal["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"] | None = None
     message: str = Field(min_length=1, max_length=1024)
+    
+
+class TelemetryLogResponse(StrictModel):
+    timestamp: int = Field(ge=0)
+    drone: Literal["delivery", "queen", "inspector", "agriculture"]
+    drone_id: int = Field(ge=1)
+    battery: int | None = Field(default=None, ge=0, le=100)
+    pitch: float | None = Field(default=None, ge=-90, le=90)
+    roll: float | None = Field(default=None, ge=-180, le=180)
+    course: float | None = Field(default=None, ge=0, le=360)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
+class EventLogResponse(StrictModel):
+    timestamp: int = Field(ge=0)
+    service: Literal[
+        "delivery",
+        "queen",
+        "inspector",
+        "agriculture",
+        "GCS",
+        "aggregator",
+        "insurance",
+        "regulator",
+        "dronePort",
+        "OrAT_drones",
+        "operator",
+        "SITL",
+        "Gazebo",
+        "infopanel",
+        "registry",
+    ]
+    service_id: int = Field(ge=1)
+    severity: Literal[
+        "debug",
+        "info",
+        "notice",
+        "warning",
+        "error",
+        "critical",
+        "alert",
+        "emergency",
+    ] | None = None
+    message: str = Field(min_length=1, max_length=1024)
