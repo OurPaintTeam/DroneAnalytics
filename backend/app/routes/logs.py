@@ -153,7 +153,7 @@ def get_basic(
 
 @router.get(
     "/telemetry",
-    response_model=list[TelemetryLogItem],
+    response_model=list[TelemetryLogResponse],
     summary="Get telemetry logs",
     description="Returns telemetry logs sorted by timestamp"
 )
@@ -168,7 +168,7 @@ def get_telemetry(
 
 @router.get(
     "/event",
-    response_model=list[EventLogItem],
+    response_model=list[EventLogResponse],
     summary="Get event logs",
     description="Returns event logs sorted by timestamp"
 )
@@ -183,7 +183,7 @@ def get_event(
 
 @router.get(
     "/safety",
-    response_model=list[EventLogItem],
+    response_model=list[EventLogResponse],
     summary="Get safety event logs",
     description="Returns safety events sorted by timestamp"
 )
