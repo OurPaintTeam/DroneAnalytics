@@ -3,6 +3,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 from app.dependencies import require_api_key, require_bearer_payload
 from app.models import BasicLogItem, EventLogItem, TelemetryLogItem, TelemetryLogResponse, EventLogResponse
 from app.config import ELASTIC_URL
+from pydantic import ValidationError
 
 
 import json
@@ -42,14 +43,33 @@ def _bulk_index(index: str, docs: list[dict]) -> int:
             detail="Log storage service returned an internal error.",
         )
 
-    payload = resp.json()
-    if payload.get("errors"):
+    try:
+        payload = resp.json()
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Log storage service reported an internal error while processing the request.",
+            detail="Log storage service returned an invalid response.",
         )
 
-    return len(docs)
+    if not payload.get("errors"):
+        return len(docs)
+
+    items = payload.get("items", [])
+    if not isinstance(items, list):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service returned an invalid response.",
+        )
+
+    indexed = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        index_result = item.get("index", {})
+        if isinstance(index_result, dict) and index_result.get("status", 500) < 300:
+            indexed += 1
+
+    return indexed
 
 
 def _get_logs_from_index(index: str, start: int, size: int):
@@ -88,12 +108,16 @@ def _get_logs_from_index(index: str, start: int, size: int):
 
 @router.post("/telemetry")
 def ingest_telemetry(
-    payload: list[TelemetryLogItem] = Body(..., min_length=1, max_length=1000),
+    payload: list[dict] = Body(..., min_length=1, max_length=1000),
     _: str = Depends(require_api_key),
 ) -> dict[str, int]:
-    docs = []
+    docs: list[dict] = []
     for item in payload:
-        doc = item.model_dump()
+        try:
+            valid_item = TelemetryLogItem.model_validate(item)
+        except ValidationError:
+            continue
+        doc = valid_item.model_dump()
         doc.pop("apiVersion", None)
         docs.append(doc)
     indexed = _bulk_index("telemetry", docs)
@@ -102,24 +126,34 @@ def ingest_telemetry(
 
 @router.post("/basic")
 def ingest_basic(
-    payload: list[BasicLogItem] = Body(..., min_length=1, max_length=1000),
+    payload: list[dict] = Body(..., min_length=1, max_length=1000),
     _: str = Depends(require_api_key),
 ) -> dict[str, int]:
-    docs = [item.model_dump() for item in payload]
+    docs: list[dict] = []
+    for item in payload:
+        try:
+            valid_item = BasicLogItem.model_validate(item)
+        except ValidationError:
+            continue
+        docs.append(valid_item.model_dump())
     indexed = _bulk_index("basic", docs)
     return {"accepted": indexed}
 
 
 @router.post("/event")
 def ingest_event(
-    payload: list[EventLogItem] = Body(..., min_length=1, max_length=1000),
+    payload: list[dict] = Body(..., min_length=1, max_length=1000),
     _: str = Depends(require_api_key),
 ) -> dict[str, int]:
     event_docs: list[dict] = []
     safety_docs: list[dict] = []
 
     for item in payload:
-        doc = item.model_dump()
+        try:
+            valid_item = EventLogItem.model_validate(item)
+        except ValidationError:
+            continue
+        doc = valid_item.model_dump()
         event_type = doc.pop("event_type", None)
         doc.pop("apiVersion", None)
         if event_type == "safety_event":
