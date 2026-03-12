@@ -1,9 +1,10 @@
 import {Outlet, NavLink} from "react-router-dom"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 import SPbguLogo from "../assets/spbgu_logo.svg"
 import OP_logo from "../assets/OP_logo.svg"
-import { RED } from "../config.ts"
+import {  BACKEND_URL,RED } from "../config.ts"
 
 function TopBarLayout() {
     const [menuOpen, setMenuOpen] = useState(false)
@@ -29,12 +30,37 @@ function TopBarLayout() {
   `
 
     const NAV_ITEMS = [
-        {to: "/log", label: "Журнал", end: true},
-        {to: "/security", label: "Безопасность"},
+        {to: "/event", label: "Журнал", end: true},
+        {to: "/safety", label: "Безопасность"},
         {to: "/telemetry", label: "Телеметрия"},
         {to: "/commands", label: "Аналитика команд"},
         {to: "/about", label: "О нас"},
     ]
+
+    const navigate = useNavigate()
+
+    const handleLogout = async () => {
+        const access = localStorage.getItem("access_token")
+        const refresh = localStorage.getItem("refresh_token")
+
+        try {
+            await fetch(`${BACKEND_URL}/auth/logout`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${access}`
+                },
+                body: JSON.stringify({
+                    refresh_token: refresh
+                })
+            })
+        } catch {}
+
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+
+        navigate("/login")
+    }
 
     return (
         <div className="min-h-screen flex flex-col bg-white text-gray-800">
@@ -61,15 +87,15 @@ function TopBarLayout() {
                         </NavLink>
                     ))}
 
-                    <NavLink
-                        to="/login"
+                    <button
                         className="ml-4 px-4 py-2 rounded-lg text-white transition-colors duration-200"
                         style={{ backgroundColor: RED }}
+                        onClick={handleLogout}
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#87251B")}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = RED)}
                     >
                         Выйти
-                    </NavLink>
+                    </button>
                 </nav>
 
                 {/* Hamburger (mobile) */}
@@ -109,14 +135,16 @@ function TopBarLayout() {
                     ))}
 
                     {/* Logout button */}
-                    <NavLink
-                        to="/login"
+                    <button
                         className="px-4 py-2 rounded-lg text-white transition-colors duration-200"
                         style={{ backgroundColor: RED }}
-                        onClick={() => setMenuOpen(false)}
+                        onClick={() => {
+                            setMenuOpen(false)
+                            handleLogout()
+                        }}
                     >
                         Выйти
-                    </NavLink>
+                    </button>
                 </div>
             )}
 
