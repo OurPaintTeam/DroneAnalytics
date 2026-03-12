@@ -1,3 +1,6 @@
+import {useEffect} from "react"
+import {useNavigate} from "react-router-dom"
+
 import AlexPhoto from "../assets/Alex.jpg"
 import TimPhoto from "../assets/Tim.jpg"
 import EugenPhoto from "../assets/Eugen.jpg"
@@ -7,6 +10,7 @@ import IvanPhoto from "../assets/Ivan.jpg"
 import OP_logo from "../assets/OP_logo.svg"
 import SPbguLogo from "../assets/spbgu_logo.svg"
 
+import {checkAuth} from "../components/TokenCheck.ts"
 import {RED} from "../config.ts"
 
 const AboutPage = () => {
@@ -17,6 +21,25 @@ const AboutPage = () => {
         {name: "Никита Андреевич Насибуллин", role: "Backend", photo: NikitaPhoto},
         {name: "Иван Сергеевич Овсюков", role: "Tester", photo: IvanPhoto},
     ]
+
+    const navigate = useNavigate()
+
+    useEffect(() => {
+
+        const init = async () => {
+
+            const authorized = await checkAuth()
+
+            if (!authorized) {
+                navigate("/login")
+                return
+            }
+
+        }
+
+        init()
+
+    }, [navigate])
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8">
