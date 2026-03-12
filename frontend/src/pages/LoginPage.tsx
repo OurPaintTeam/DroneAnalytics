@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import {useState, useEffect} from "react"
+import {useNavigate} from "react-router-dom"
 
 import OP_logo from "../assets/OP_logo.svg"
 import SPbguLogo from "../assets/spbgu_logo.svg"
-import { RED, BACKEND_URL } from "../config.ts"
-import { checkAuth } from "../components/TokenCheck.ts"
+import {RED, BACKEND_URL} from "../config.ts"
+import {checkAuth} from "../components/TokenCheck.ts"
 
 function LoginPage() {
 
@@ -16,6 +16,7 @@ function LoginPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        setError("")
 
         try {
             const response = await fetch(`${BACKEND_URL}/auth/login`, {
@@ -29,13 +30,20 @@ function LoginPage() {
                 })
             })
 
-            if (!response.ok) {
-                throw new Error("Invalid credentials")
-            }
-
             const data = await response.json()
 
-            const { access_token, refresh_token } = data
+            if (!response.ok) {
+
+                const text: string = data.message || ""
+
+                const matches = [...text.matchAll(/'msg':\s*'([^']+)'/g)]
+
+                const messages = matches.map(m => m[1])
+
+                throw new Error(messages.join(", ") || "Ошибка авторизации")
+            }
+
+            const {access_token, refresh_token} = data
 
             // сохраняем токены
             localStorage.setItem("access_token", access_token)
@@ -44,8 +52,8 @@ function LoginPage() {
             // переход
             navigate("/event")
 
-        } catch (err) {
-            setError("Неверный логин или пароль")
+        } catch (err: any) {
+            setError(err.message || "Ошибка соединения с сервером")
         }
     }
 
@@ -78,8 +86,8 @@ function LoginPage() {
                         <div className="flex items-center gap-2">
                             <img src={OP_logo} alt="OP Logo" className="h-9"/>
                             <span className="text-sm font-semibold tracking-tight leading-none">
-                                <span style={{ color: RED }}>OurPaint</span>
-                                 <br />
+                                <span style={{color: RED}}>OurPaint</span>
+                                 <br/>
                                  <span className="text-gray-800">Company</span>
                              </span>
                         </div>
@@ -121,7 +129,7 @@ function LoginPage() {
                                 type="text"
                                 placeholder="Введите логин"
                                 value={username}
-                                onChange={(e)=>setUsername(e.target.value)}
+                                onChange={(e) => setUsername(e.target.value)}
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none transition"
                                 style={{outlineColor: RED}}
                             />
@@ -136,7 +144,7 @@ function LoginPage() {
                                 type="password"
                                 placeholder="Введите пароль"
                                 value={password}
-                                onChange={(e)=>setPassword(e.target.value)}
+                                onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none transition"
                                 style={{outlineColor: RED}}
                             />
