@@ -11,17 +11,20 @@ import TelemetryLog from "./pages/TelemetryLogPage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import AboutPage from "./pages/AboutPage.tsx";
 import CommandsPage from "./pages/CommandsPage.tsx";
+import ErrorPage from "./pages/ErrorPage.tsx"
 
 const router = createBrowserRouter([
 
     {
         path: "/login",
         element: <LoginPage/>,
+        errorElement: <ErrorPage/>
     },
 
     {
         path: "/",
         element: <TopBar/>,
+        errorElement: <ErrorPage/>,
         children: [
             {index: true, element: <Navigate to="/event" replace/>},
             {path: "event", element: <EventLog/>},
