@@ -23,9 +23,9 @@ const router = createBrowserRouter([
         path: "/",
         element: <TopBar/>,
         children: [
-            {index: true, element: <Navigate to="/log" replace/>},
-            {path: "log", element: <EventLog/>},
-            {path: "security", element: <SecurityLog/>},
+            {index: true, element: <Navigate to="/event" replace/>},
+            {path: "event", element: <EventLog/>},
+            {path: "safety", element: <SecurityLog/>},
             {path: "telemetry", element: <TelemetryLog/>},
             {path: "about", element: <AboutPage/>},
             {path: "commands", element: <CommandsPage/>},
