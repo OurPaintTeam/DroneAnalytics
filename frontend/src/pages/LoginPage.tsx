@@ -1,8 +1,66 @@
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+
 import OP_logo from "../assets/OP_logo.svg"
 import SPbguLogo from "../assets/spbgu_logo.svg"
-import {RED} from "../config.ts"
+import { RED, BACKEND_URL } from "../config.ts"
+import { checkAuth } from "../components/TokenCheck.ts"
 
 function LoginPage() {
+
+    const navigate = useNavigate()
+
+    const [username, setUsername] = useState("")
+    const [password, setPassword] = useState("")
+    const [error, setError] = useState("")
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        try {
+            const response = await fetch(`${BACKEND_URL}/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+
+            if (!response.ok) {
+                throw new Error("Invalid credentials")
+            }
+
+            const data = await response.json()
+
+            const { access_token, refresh_token } = data
+
+            // сохраняем токены
+            localStorage.setItem("access_token", access_token)
+            localStorage.setItem("refresh_token", refresh_token)
+
+            // переход
+            navigate("/event")
+
+        } catch (err) {
+            setError("Неверный логин или пароль")
+        }
+    }
+
+    useEffect(() => {
+        const check = async () => {
+            const authorized = await checkAuth()
+
+            if (authorized) {
+                navigate("/event")
+            }
+        }
+
+        check()
+    }, [])
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-white px-4">
 
@@ -52,7 +110,7 @@ function LoginPage() {
                     </div>
 
                     {/* Form */}
-                    <form className="flex flex-col gap-6">
+                    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
 
                         {/* Login */}
                         <div>
@@ -62,6 +120,8 @@ function LoginPage() {
                             <input
                                 type="text"
                                 placeholder="Введите логин"
+                                value={username}
+                                onChange={(e)=>setUsername(e.target.value)}
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none transition"
                                 style={{outlineColor: RED}}
                             />
@@ -75,11 +135,18 @@ function LoginPage() {
                             <input
                                 type="password"
                                 placeholder="Введите пароль"
+                                value={password}
+                                onChange={(e)=>setPassword(e.target.value)}
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none transition"
                                 style={{outlineColor: RED}}
                             />
                         </div>
 
+                        {error && (
+                            <p className="text-red-500 text-sm text-center">
+                                {error}
+                            </p>
+                        )}
 
                         <button
                             type="submit"
