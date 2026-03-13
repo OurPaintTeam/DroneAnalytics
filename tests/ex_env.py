@@ -151,13 +151,13 @@ login()
 
 # Retrieve logs
 print("\nRetrieving telemetry logs...")
-get_logs("/log/telemetry", {"limit": 10, "page": 1})
+print(get_logs("/log/telemetry", {"limit": 10, "page": 1}))
 
 print("\nRetrieving basic logs...")
-get_logs("/log/basic", {"limit": 10, "page": 1})
+print(get_logs("/log/basic", {"limit": 10, "page": 1}))
 
 print("\nRetrieving event logs...")
-get_logs("/log/event", {"limit": 10, "page": 1})
+print(get_logs("/log/event", {"limit": 10, "page": 1}))
 
 print("\nRetrieving safety events...")
-get_logs("/log/safety", {"limit": 10, "page": 1})
+print(get_logs("/log/safety", {"limit": 10, "page": 1}))
