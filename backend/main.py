@@ -1,9 +1,18 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.config import CORS_ORIGINS
 from app.errors import register_exception_handlers
 from app.routes.auth import router as auth_router
 from app.routes.logs import router as logs_router
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
 
 app = FastAPI(title="DroneAnalytics API")
 app.add_middleware(
