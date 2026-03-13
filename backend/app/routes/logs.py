@@ -92,9 +92,9 @@ def _bulk_index(index: str, docs: list[dict], source_indices: list[int]) -> tupl
     else:
         audit_event("info", f"action=bulk_index status=success index={index} accepted={indexed} total={len(docs)}")
     return indexed, failed_items
-  
-
-  def _partial_or_ok_response(total: int, accepted: int, errors: list[dict]) -> JSONResponse:
+ 
+ 
+def _partial_or_ok_response(total: int, accepted: int, errors: list[dict]) -> JSONResponse:
     body = {
         "total": total,
         "accepted": accepted,
