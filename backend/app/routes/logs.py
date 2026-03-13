@@ -94,7 +94,7 @@ def _bulk_index(index: str, docs: list[dict], source_indices: list[int]) -> tupl
     return indexed, failed_items
   
 
-  def _partial_or_ok_response(total: int, accepted: int, errors: list[dict]) -> JSONResponse:
+def _partial_or_ok_response(total: int, accepted: int, errors: list[dict]) -> JSONResponse:
     body = {
         "total": total,
         "accepted": accepted,
