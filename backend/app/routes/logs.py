@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 import io
 import csv
-from datetime import datetime, timezone
 from typing import Iterable, Optional
 
 from fastapi.responses import StreamingResponse
@@ -156,49 +155,6 @@ def _get_logs_from_index(index: str, start: int, size: int, exclude_service: str
     hits = data.get("hits", {}).get("hits", [])
     return [hit["_source"] for hit in hits]
 
-
-from datetime import datetime, timezone
-from fastapi import HTTPException, status
-
-
-def _parse_iso_datetime_to_millis(dt_str: str | None) -> int | None:
-    if dt_str is None:
-        return None
-
-    try:
-        if dt_str.endswith("Z"):
-            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-        else:
-            dt = datetime.fromisoformat(dt_str)
-
-    except Exception:
-        # возможно это unix timestamp
-        try:
-            num = int(dt_str)
-
-            # миллисекунды
-            if num > 10**12:
-                return num
-
-            # секунды
-            if num > 10**9:
-                return num * 1000
-
-            return num * 1000
-
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid datetime format: {dt_str}",
-            )
-
-    # если datetime без timezone
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-
-    dt_utc = dt.astimezone(timezone.utc)
-
-    return int(dt_utc.timestamp() * 1000)
 
 
 def _es_scroll_iter(index: str, from_ms: Optional[int], to_ms: Optional[int], _source: Optional[list] = None, batch_size: int = 1000):
@@ -399,14 +355,9 @@ def _csv_bytes_generator(rows_iter: Iterable[dict], fieldnames: list[str]):
         buf.truncate(0)
 
 
-def _make_filename(base: str, from_dt: Optional[str], to_dt: Optional[str]) -> str:
-
-    def norm(s: Optional[str]) -> str:
-        if not s:
-            return "all"
-        return s.replace(":", "-").replace("+", "_").replace(" ", "_").replace("/", "_")
-    if from_dt or to_dt:
-        return f"{base}_{norm(from_dt)}_{norm(to_dt)}.csv"
+def _make_filename(base: str, from_ts: Optional[int], to_ts: Optional[int]) -> str:
+    if from_ts or to_ts:
+        return f"{base}_{from_ts or 'all'}_{to_ts or 'all'}.csv"
     return f"{base}_all.csv"
 
 
@@ -604,85 +555,125 @@ def get_safety(
     return _get_logs_from_index("safety", start, limit, exclude_service=AUDIT_SERVICE)
 
 
-@router.get("/download/basic", summary="Download basic logs as CSV (by time range)")
+@router.get("/download/basic", summary="Download basic logs as CSV (by timestamp range)")
 def download_basic_csv(
-    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive), e.g. 2026-03-14T10:00:00Z"),
-    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
     _: dict = Depends(require_bearer_payload),
 ):
-    from_ms = _parse_iso_datetime_to_millis(from_dt)
-    to_ms = _parse_iso_datetime_to_millis(to_dt)
     fieldnames = ["timestamp", "message"]
-    rows_iter = _es_scroll_iter("basic", from_ms, to_ms, _source=fieldnames)
-    filename = _make_filename("basic_logs", from_dt, to_dt)
+
+    rows_iter = _es_scroll_iter(
+        "basic",
+        from_ts,
+        to_ts,
+        _source=fieldnames
+    )
+
+    filename = _make_filename("basic_logs", from_ts, to_ts)
+
     generator = _csv_bytes_generator(rows_iter, fieldnames)
-    return StreamingResponse(generator, media_type="application/octet-stream",
-                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+    return StreamingResponse(
+        generator,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
-@router.get("/download/telemetry", summary="Download telemetry logs as CSV (by time range)")
+
+@router.get("/download/telemetry", summary="Download telemetry logs as CSV (by timestamp range)")
 def download_telemetry_csv(
-    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive)"),
-    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
     _: dict = Depends(require_bearer_payload),
 ):
-    from_ms = _parse_iso_datetime_to_millis(from_dt)
-    to_ms = _parse_iso_datetime_to_millis(to_dt)
     fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude"]
-    rows_iter = _es_scroll_iter("telemetry", from_ms, to_ms, _source=fieldnames)
-    filename = _make_filename("telemetry_logs", from_dt, to_dt)
+
+    rows_iter = _es_scroll_iter(
+        "telemetry",
+        from_ts,
+        to_ts,
+        _source=fieldnames
+    )
+
+    filename = _make_filename("telemetry_logs", from_ts, to_ts)
+
     generator = _csv_bytes_generator(rows_iter, fieldnames)
-    return StreamingResponse(generator, media_type="application/octet-stream",
-                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+    return StreamingResponse(
+        generator,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
-@router.get("/download/event", summary="Download event logs as CSV (by time range)")
+
+@router.get("/download/event", summary="Download event logs as CSV (by timestamp range)")
 def download_event_csv(
-    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive)"),
-    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
     _: dict = Depends(require_bearer_payload),
 ):
-    from_ms = _parse_iso_datetime_to_millis(from_dt)
-    to_ms = _parse_iso_datetime_to_millis(to_dt)
-    # event index doesn't include event_type (we removed it on ingest), so fields below match stored docs
     fieldnames = ["timestamp", "service", "service_id", "severity", "message"]
-    rows_iter = _es_scroll_iter("event", from_ms, to_ms, _source=fieldnames)
-    filename = _make_filename("event_logs", from_dt, to_dt)
+
+    rows_iter = _es_scroll_iter(
+        "event",
+        from_ts,
+        to_ts,
+        _source=fieldnames
+    )
+
+    filename = _make_filename("event_logs", from_ts, to_ts)
+
     generator = _csv_bytes_generator(rows_iter, fieldnames)
-    return StreamingResponse(generator, media_type="application/octet-stream",
-                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+    return StreamingResponse(
+        generator,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
-@router.get("/download/safety", summary="Download safety logs as CSV (by time range)")
+
+@router.get("/download/safety", summary="Download safety logs as CSV (by timestamp range)")
 def download_safety_csv(
-    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive)"),
-    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
     _: dict = Depends(require_bearer_payload),
 ):
-    from_ms = _parse_iso_datetime_to_millis(from_dt)
-    to_ms = _parse_iso_datetime_to_millis(to_dt)
     fieldnames = ["timestamp", "service", "service_id", "severity", "message"]
-    rows_iter = _es_scroll_iter("safety", from_ms, to_ms, _source=fieldnames)
-    filename = _make_filename("safety_logs", from_dt, to_dt)
+
+    rows_iter = _es_scroll_iter(
+        "safety",
+        from_ts,
+        to_ts,
+        _source=fieldnames
+    )
+
+    filename = _make_filename("safety_logs", from_ts, to_ts)
+
     generator = _csv_bytes_generator(rows_iter, fieldnames)
-    return StreamingResponse(generator, media_type="application/octet-stream",
-                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+    return StreamingResponse(
+        generator,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
 
 
 @router.get("/download/all")
 def download_all_csv(
-    from_dt: str | None = Query(None),
-    to_dt: str | None = Query(None),
+    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
     _: dict = Depends(require_bearer_payload),
 ):
 
-    from_ms = _parse_iso_datetime_to_millis(from_dt)
-    to_ms = _parse_iso_datetime_to_millis(to_dt)
-
     rows_iter = _es_scroll_iter_multi(
         "basic,telemetry,event,safety",
-        from_ms,
-        to_ms
+        from_ts,
+        to_ts
     )
 
     fieldnames = [
@@ -702,7 +693,7 @@ def download_all_csv(
         "severity",
     ]
 
-    filename = _make_filename("all_logs", from_dt, to_dt)
+    filename = _make_filename("all_logs", from_ts, to_ts)
 
     generator = _csv_bytes_generator(rows_iter, fieldnames)
 
