@@ -324,8 +324,9 @@ def _es_scroll_iter_multi(indices: str, from_ms: Optional[int], to_ms: Optional[
         try:
             if scroll_id:
                 requests.delete(f"{ELASTIC_URL}/_search/scroll", json={"scroll_id": [scroll_id]}, timeout=5)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Log but do not propagate errors during scroll cleanup to avoid masking original issues.
+            audit_event("error", f"action=download_query status=failure index={indices} reason=scroll_clear_failed error={exc}")
 
 
 def _csv_bytes_generator(rows_iter: Iterable[dict], fieldnames: list[str]):
