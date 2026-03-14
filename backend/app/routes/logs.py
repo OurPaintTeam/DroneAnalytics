@@ -229,12 +229,12 @@ def _es_scroll_iter(index: str, from_ms: Optional[int], to_ms: Optional[int], _s
         for h in hits2:
             yield h.get("_source", {})
 
-    # try to clear scroll (best-effort)
+    # try to clear scroll (best-effort). Swallow errors but record them for diagnostics.
     try:
         if scroll_id:
             requests.delete(f"{ELASTIC_URL}/_search/scroll", json={"scroll_id": [scroll_id]}, timeout=5)
-    except Exception:
-        pass
+    except Exception as e:
+        audit_event("error", f"action=clear_scroll status=failure index={index} reason={type(e).__name__}")
 
 
 def _es_scroll_iter_multi(indices: str, from_ms: Optional[int], to_ms: Optional[int], _source: Optional[list] = None, batch_size: int = 1000):
