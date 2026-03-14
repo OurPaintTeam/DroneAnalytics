@@ -7,6 +7,12 @@ from app.models import BasicLogItem, EventLogItem, TelemetryLogItem, TelemetryLo
 from app.config import ELASTIC_URL
 from pydantic import ValidationError
 
+import io
+import csv
+from datetime import datetime, timezone
+from typing import Iterable, Optional
+
+from fastapi.responses import StreamingResponse
 
 import json
 import requests
@@ -149,6 +155,259 @@ def _get_logs_from_index(index: str, start: int, size: int, exclude_service: str
 
     hits = data.get("hits", {}).get("hits", [])
     return [hit["_source"] for hit in hits]
+
+
+from datetime import datetime, timezone
+from fastapi import HTTPException, status
+
+
+def _parse_iso_datetime_to_millis(dt_str: str | None) -> int | None:
+    if dt_str is None:
+        return None
+
+    try:
+        if dt_str.endswith("Z"):
+            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        else:
+            dt = datetime.fromisoformat(dt_str)
+
+    except Exception:
+        # возможно это unix timestamp
+        try:
+            num = int(dt_str)
+
+            # миллисекунды
+            if num > 10**12:
+                return num
+
+            # секунды
+            if num > 10**9:
+                return num * 1000
+
+            return num * 1000
+
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid datetime format: {dt_str}",
+            )
+
+    # если datetime без timezone
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    dt_utc = dt.astimezone(timezone.utc)
+
+    return int(dt_utc.timestamp() * 1000)
+
+
+def _es_scroll_iter(index: str, from_ms: Optional[int], to_ms: Optional[int], _source: Optional[list] = None, batch_size: int = 1000):
+    """
+    Итератор, который возвращает документы из ES используя scroll API.
+    Пагинация выполняется через scroll, возвращает документный _source словарь.
+    Сортировка: timestamp desc
+    """
+    query: dict = {
+        "size": batch_size,
+        "sort": [{"timestamp": {"order": "desc"}}],
+    }
+    bool_filter = []
+    if from_ms is not None or to_ms is not None:
+        rng = {}
+        if from_ms is not None:
+            rng["gte"] = from_ms
+        if to_ms is not None:
+            rng["lte"] = to_ms
+        bool_filter.append({"range": {"timestamp": rng}})
+    if bool_filter:
+        query["query"] = {"bool": {"filter": bool_filter}}
+    if _source is not None:
+        query["_source"] = _source
+
+    try:
+        # initial search with scroll
+        resp = requests.post(f"{ELASTIC_URL}/{index}/_search?scroll=1m", json=query, timeout=30)
+    except requests.RequestException:
+        audit_event("error", f"action=download_query status=failure index={index} reason=connection_error")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service is temporarily unavailable.")
+
+    if resp.status_code >= 300:
+        audit_event("error", f"action=download_query status=failure index={index} reason=upstream_error http_status={resp.status_code}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an internal error.")
+
+    try:
+        data = resp.json()
+    except ValueError:
+        audit_event("error", f"action=download_query status=failure index={index} reason=invalid_json")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an invalid response.")
+
+    scroll_id = data.get("_scroll_id")
+    hits = data.get("hits", {}).get("hits", [])
+    for h in hits:
+        yield h.get("_source", {})
+
+    # loop scroll
+    while True:
+        if not scroll_id:
+            break
+        try:
+            resp2 = requests.post(f"{ELASTIC_URL}/_search/scroll", json={"scroll": "1m", "scroll_id": scroll_id}, timeout=30)
+        except requests.RequestException:
+            audit_event("error", f"action=download_scroll status=failure index={index} reason=connection_error")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service is temporarily unavailable.")
+
+        if resp2.status_code >= 300:
+            audit_event("error", f"action=download_scroll status=failure index={index} reason=upstream_error http_status={resp2.status_code}")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an internal error.")
+
+        try:
+            data2 = resp2.json()
+        except ValueError:
+            audit_event("error", f"action=download_scroll status=failure index={index} reason=invalid_json")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an invalid response.")
+
+        scroll_id = data2.get("_scroll_id")
+        hits2 = data2.get("hits", {}).get("hits", [])
+        if not hits2:
+            break
+        for h in hits2:
+            yield h.get("_source", {})
+
+    # try to clear scroll (best-effort)
+    try:
+        if scroll_id:
+            requests.delete(f"{ELASTIC_URL}/_search/scroll", json={"scroll_id": [scroll_id]}, timeout=5)
+    except Exception:
+        pass
+
+
+def _es_scroll_iter_multi(indices: str, from_ms: Optional[int], to_ms: Optional[int], _source: Optional[list] = None, batch_size: int = 1000):
+    """
+    Multi-index scroll iterator. Возвращает документы из нескольких индексов ES, отсортированные по timestamp desc.
+    Обрабатывает ошибки так же, как `_es_scroll_iter` (connection error, http status, invalid json) и очищает scroll в finally.
+    Каждый yielded документ — копия _source с дополнительным полем "index".
+    """
+    query: dict = {
+        "size": batch_size,
+        "sort": [{"timestamp": {"order": "desc"}}],
+    }
+
+    bool_filter = []
+    if from_ms is not None or to_ms is not None:
+        rng: dict = {}
+        if from_ms is not None:
+            rng["gte"] = from_ms
+        if to_ms is not None:
+            rng["lte"] = to_ms
+        bool_filter.append({"range": {"timestamp": rng}})
+
+    if bool_filter:
+        query["query"] = {"bool": {"filter": bool_filter}}
+    if _source is not None:
+        query["_source"] = _source
+
+    try:
+        resp = requests.post(f"{ELASTIC_URL}/{indices}/_search?scroll=1m", json=query, timeout=30)
+    except requests.RequestException:
+        audit_event("error", f"action=download_query status=failure index={indices} reason=connection_error")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service is temporarily unavailable.")
+
+    if resp.status_code >= 300:
+        audit_event("error", f"action=download_query status=failure index={indices} reason=upstream_error http_status={resp.status_code}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an internal error.")
+
+    try:
+        data = resp.json()
+    except ValueError:
+        audit_event("error", f"action=download_query status=failure index={indices} reason=invalid_json")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an invalid response.")
+
+    scroll_id = data.get("_scroll_id")
+    try:
+        hits = data.get("hits", {}).get("hits", [])
+        for h in hits:
+            src = dict(h.get("_source", {}))
+            src["index"] = h.get("_index")
+            yield src
+
+        # loop scroll
+        while True:
+            if not scroll_id:
+                break
+            try:
+                resp2 = requests.post(
+                    f"{ELASTIC_URL}/_search/scroll",
+                    json={"scroll": "1m", "scroll_id": scroll_id},
+                    timeout=30,
+                )
+            except requests.RequestException:
+                audit_event("error", f"action=download_scroll status=failure index={indices} reason=connection_error")
+                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service is temporarily unavailable.")
+
+            if resp2.status_code >= 300:
+                audit_event("error", f"action=download_scroll status=failure index={indices} reason=upstream_error http_status={resp2.status_code}")
+                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an internal error.")
+
+            try:
+                data2 = resp2.json()
+            except ValueError:
+                audit_event("error", f"action=download_scroll status=failure index={indices} reason=invalid_json")
+                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Log storage service returned an invalid response.")
+
+            scroll_id = data2.get("_scroll_id")
+            hits2 = data2.get("hits", {}).get("hits", [])
+            if not hits2:
+                break
+            for h in hits2:
+                src = dict(h.get("_source", {}))
+                src["index"] = h.get("_index")
+                yield src
+
+    finally:
+        # try to clear scroll (best-effort)
+        try:
+            if scroll_id:
+                requests.delete(f"{ELASTIC_URL}/_search/scroll", json={"scroll_id": [scroll_id]}, timeout=5)
+        except Exception:
+            pass
+
+
+def _csv_bytes_generator(rows_iter: Iterable[dict], fieldnames: list[str]):
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    # header
+    writer.writerow(fieldnames)
+    yield buf.getvalue().encode("utf-8")
+    buf.seek(0)
+    buf.truncate(0)
+    # rows
+    for doc in rows_iter:
+        row = []
+        for f in fieldnames:
+            v = doc.get(f, "")
+            if v is None:
+                v = ""
+            if isinstance(v, (dict, list)):
+                try:
+                    v = json.dumps(v, ensure_ascii=False)
+                except Exception:
+                    v = str(v)
+            row.append(str(v))
+        writer.writerow(row)
+        yield buf.getvalue().encode("utf-8")
+        buf.seek(0)
+        buf.truncate(0)
+
+
+def _make_filename(base: str, from_dt: Optional[str], to_dt: Optional[str]) -> str:
+
+    def norm(s: Optional[str]) -> str:
+        if not s:
+            return "all"
+        return s.replace(":", "-").replace("+", "_").replace(" ", "_").replace("/", "_")
+    if from_dt or to_dt:
+        return f"{base}_{norm(from_dt)}_{norm(to_dt)}.csv"
+    return f"{base}_all.csv"
 
 
 @router.post("/telemetry")
@@ -343,3 +602,112 @@ def get_safety(
 ):
     start = (page - 1) * limit
     return _get_logs_from_index("safety", start, limit, exclude_service=AUDIT_SERVICE)
+
+
+@router.get("/download/basic", summary="Download basic logs as CSV (by time range)")
+def download_basic_csv(
+    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive), e.g. 2026-03-14T10:00:00Z"),
+    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    _: dict = Depends(require_bearer_payload),
+):
+    from_ms = _parse_iso_datetime_to_millis(from_dt)
+    to_ms = _parse_iso_datetime_to_millis(to_dt)
+    fieldnames = ["timestamp", "message"]
+    rows_iter = _es_scroll_iter("basic", from_ms, to_ms, _source=fieldnames)
+    filename = _make_filename("basic_logs", from_dt, to_dt)
+    generator = _csv_bytes_generator(rows_iter, fieldnames)
+    return StreamingResponse(generator, media_type="application/octet-stream",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/download/telemetry", summary="Download telemetry logs as CSV (by time range)")
+def download_telemetry_csv(
+    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive)"),
+    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    _: dict = Depends(require_bearer_payload),
+):
+    from_ms = _parse_iso_datetime_to_millis(from_dt)
+    to_ms = _parse_iso_datetime_to_millis(to_dt)
+    fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude"]
+    rows_iter = _es_scroll_iter("telemetry", from_ms, to_ms, _source=fieldnames)
+    filename = _make_filename("telemetry_logs", from_dt, to_dt)
+    generator = _csv_bytes_generator(rows_iter, fieldnames)
+    return StreamingResponse(generator, media_type="application/octet-stream",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/download/event", summary="Download event logs as CSV (by time range)")
+def download_event_csv(
+    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive)"),
+    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    _: dict = Depends(require_bearer_payload),
+):
+    from_ms = _parse_iso_datetime_to_millis(from_dt)
+    to_ms = _parse_iso_datetime_to_millis(to_dt)
+    # event index doesn't include event_type (we removed it on ingest), so fields below match stored docs
+    fieldnames = ["timestamp", "service", "service_id", "severity", "message"]
+    rows_iter = _es_scroll_iter("event", from_ms, to_ms, _source=fieldnames)
+    filename = _make_filename("event_logs", from_dt, to_dt)
+    generator = _csv_bytes_generator(rows_iter, fieldnames)
+    return StreamingResponse(generator, media_type="application/octet-stream",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/download/safety", summary="Download safety logs as CSV (by time range)")
+def download_safety_csv(
+    from_dt: Optional[str] = Query(None, description="ISO 8601 start datetime (inclusive)"),
+    to_dt: Optional[str] = Query(None, description="ISO 8601 end datetime (inclusive)"),
+    _: dict = Depends(require_bearer_payload),
+):
+    from_ms = _parse_iso_datetime_to_millis(from_dt)
+    to_ms = _parse_iso_datetime_to_millis(to_dt)
+    fieldnames = ["timestamp", "service", "service_id", "severity", "message"]
+    rows_iter = _es_scroll_iter("safety", from_ms, to_ms, _source=fieldnames)
+    filename = _make_filename("safety_logs", from_dt, to_dt)
+    generator = _csv_bytes_generator(rows_iter, fieldnames)
+    return StreamingResponse(generator, media_type="application/octet-stream",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/download/all")
+def download_all_csv(
+    from_dt: str | None = Query(None),
+    to_dt: str | None = Query(None),
+    _: dict = Depends(require_bearer_payload),
+):
+
+    from_ms = _parse_iso_datetime_to_millis(from_dt)
+    to_ms = _parse_iso_datetime_to_millis(to_dt)
+
+    rows_iter = _es_scroll_iter_multi(
+        "basic,telemetry,event,safety",
+        from_ms,
+        to_ms
+    )
+
+    fieldnames = [
+        "index",
+        "timestamp",
+        "message",
+        "drone",
+        "drone_id",
+        "battery",
+        "pitch",
+        "roll",
+        "course",
+        "latitude",
+        "longitude",
+        "service",
+        "service_id",
+        "severity",
+    ]
+
+    filename = _make_filename("all_logs", from_dt, to_dt)
+
+    generator = _csv_bytes_generator(rows_iter, fieldnames)
+
+    return StreamingResponse(
+        generator,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
