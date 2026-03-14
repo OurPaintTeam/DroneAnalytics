@@ -7,3 +7,6 @@ docker compose up -d backend elastic
 
 ## 2. Установите зависимости для тестов
 pip install -r tests/requirements.txt
+
+## 3. Запустите тесты
+pytest tests/endpoints/ -v -s
