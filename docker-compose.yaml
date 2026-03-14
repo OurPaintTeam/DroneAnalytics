@@ -7,18 +7,22 @@ services:
     expose:
       - 8080
     networks:
-      - DE-net
+      - DA-net
     env_file:
       - ./backend/.env
     depends_on:
       - elastic
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend
   elastic:
     build: ./elastic
     container_name: elastic
     expose:
       - 9200
     networks:
-      - DE-net
+      - DA-net
     env_file:
       - ./elastic/.env
     volumes:
@@ -31,14 +35,18 @@ services:
     expose:
       - 5173
     networks:
-      - DE-net
+      - DA-net
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend
   init-elastic:
     build:
       context: ./init-elastic
       dockerfile: Dockerfile
     container_name: init-elastic
     networks:
-      - DE-net
+      - DA-net
     env_file:
       - ./init-elastic/.env
     depends_on:
@@ -52,7 +60,7 @@ services:
       - "80:80"
       - "443:443"
     networks:
-      - DE-net
+      - DA-net
     depends_on:
       backend:
         condition: service_started
@@ -67,5 +75,5 @@ volumes:
   esdata:
 
 networks:
-  DE-net:
+  DA-net:
     driver: bridge

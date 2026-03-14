@@ -13,12 +13,15 @@ env:
 
 local: env prod
 
-clear:
+clean:
 	docker compose down
 
-healthcheck: prod clear
+healthcheck: prod clean
 
 .PHONY: tests
 
-tests:
+tests: healthcheck
 	cd tests && uv sync && uv run pytest
+
+watch:
+	docker compose watch
