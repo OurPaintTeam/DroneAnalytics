@@ -3,6 +3,7 @@ import requests
 import signal
 import sys
 import time
+import yaml
 
 
 def shutdown(signum, frame):
@@ -10,7 +11,14 @@ def shutdown(signum, frame):
     sys.exit(0)
 
 def main():
-    ELASTIC_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
+    # Загрузка конфигурации из файла
+    try:
+        with open('/etc/init-elastic.yaml', 'r') as file:
+            config = yaml.safe_load(file)
+        ELASTIC_URL = config.get('elastic_url', 'http://elastic:9200')
+    except Exception as e:
+        print(f"Error loading configuration: {e}")
+        sys.exit(1)
 
     telemetry = {
         "settings": {
@@ -18,6 +26,7 @@ def main():
             "number_of_replicas": 0
         },
         "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "timestamp": { "type": "date", "format": "epoch_millis"},
                 "drone": { "type": "keyword" },

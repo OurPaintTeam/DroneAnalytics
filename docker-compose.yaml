@@ -24,7 +24,7 @@ services:
     networks:
       - DA-net
     env_file:
-      - ./elastic/.env
+      - ./configs/elastic.env
     volumes:
       - esdata:/usr/share/elasticsearch/data
   frontend:
@@ -36,6 +36,9 @@ services:
       - 5173
     networks:
       - DA-net
+    configs:
+      - source: frontend
+        target: /etc/nginx/conf.d/default.conf
     develop:
       watch:
         - action: rebuild
@@ -47,8 +50,9 @@ services:
     container_name: init-elastic
     networks:
       - DA-net
-    env_file:
-      - ./init-elastic/.env
+    configs:
+      - source: init-elastic
+        target: /etc/init-elastic.yaml
     depends_on:
       - elastic
   proxy:
@@ -61,6 +65,9 @@ services:
       - "443:443"
     networks:
       - DA-net
+    configs:
+      - source: proxy
+        target: /etc/nginx/nginx.conf
     depends_on:
       backend:
         condition: service_started
@@ -70,6 +77,15 @@ services:
         condition: service_completed_successfully
     security_opt:
       - no-new-privileges:true
+
+configs:
+  frontend:
+    file: ./configs/frontend.conf
+  init-elastic:
+    file: ./configs/init-elastic.yaml
+  proxy:
+    file: ./configs/proxy.conf
+
 
 volumes:
   esdata:
