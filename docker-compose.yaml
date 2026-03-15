@@ -56,9 +56,7 @@ services:
     depends_on:
       - elastic
   proxy:
-    build:
-      context: ./proxy
-      dockerfile: Dockerfile
+    image: nginx:1.29.4-alpine3.23
     container_name: proxy
     ports:
       - "80:80"
@@ -68,6 +66,9 @@ services:
     configs:
       - source: proxy
         target: /etc/nginx/nginx.conf
+    secrets:
+      - proxy.crt # mount to /run/secrets/proxy.crt - always
+      - proxy.key # mount to /run/secrets/proxy.key - always
     depends_on:
       backend:
         condition: service_started
@@ -86,6 +87,11 @@ configs:
   proxy:
     file: ./configs/proxy.conf
 
+secrets:
+  proxy.crt:
+    file: ./secrets/proxy.crt
+  proxy.key:
+    file: ./secrets/proxy.key
 
 volumes:
   esdata:
