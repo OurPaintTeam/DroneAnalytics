@@ -1,8 +1,6 @@
 import requests
-import os
 from typing import List
-
-ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
+from .conftest import ELASTIC_URL
 INDICES = ["telemetry", "basic", "event", "safety"]
 
 
