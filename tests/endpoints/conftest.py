@@ -12,6 +12,13 @@ ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 API_KEY = os.getenv("API_KEY", "change-me")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "user")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "password")
+SECRET_KEY = os.getenv("DRONE_SECRET_KEY", "test-secret-key-for-tests").encode("utf-8")
+REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
+ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
+JWT_ALGORITHM = "HS256"
+JWT_REQUIRED_CLAIMS = ["exp", "iat", "sub", "type", "jti"]
+
+ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 
 
 @pytest.fixture(scope="session", autouse=True)
