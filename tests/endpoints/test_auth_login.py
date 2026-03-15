@@ -3,6 +3,8 @@ import pytest
 import requests
 from typing import Dict, Any
 
+from .utils import get_recent_audit_log
+
 from .conftest import BACKEND_URL, ELASTIC_URL
 
 
@@ -278,61 +280,6 @@ class TestLoginAudit:
 class TestLoginAudit:
     """Тесты проверки записей аудита в ElasticSearch."""
 
-    def _get_recent_audit_log(self, expected_substring: str, severity: str) -> dict | None:
-        """
-        Ищет самую свежую запись аудита, содержащую подстроку и severity.
-        
-        Args:
-            expected_substring: Часть сообщения, которую ожидаем (без IP)
-            severity: Ожидаемый уровень (info/warning)
-            
-        Returns:
-            dict с _source записи или None, если не найдено
-        """        
-        # Ждем применения изменений в ES (eventual consistency)
-        time.sleep(1.5)
-        
-        # Получаем текущее время в миллисекундах для фильтра
-        now_ms = int(time.time) * 1000
-        # Ищем записи за последние 10 секунд
-        time_range_ms = 10000
-        
-        try:
-            # Поиск с сортировкой по timestamp (desc) - берем самую свежую
-            query = {
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"match": {"message": expected_substring}},
-                            {"term": {"severity": severity}},
-                            {
-                                "range": {
-                                    "timestamp": {
-                                        "gte": now_ms - time_range_ms,
-                                        "lte": now_ms + time_range_ms  # Небольшой запас на рассинхрон часов
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                },
-                "sort": [{"timestamp": {"order": "desc"}}],
-                "size": 1
-            }
-            resp = requests.post(
-                f"{ELASTIC_URL}/safety/_search",
-                json=query,
-                timeout=5
-            )
-            if resp.status_code != 200:
-                pytest.skip(f"ElasticSearch returned status {resp.status_code}")
-                
-            hits = resp.json().get("hits", {}).get("hits", [])
-            return hits[0]["_source"] if hits else None
-            
-        except requests.RequestException as e:
-            pytest.skip(f"ElasticSearch unavailable for audit check: {e}")
-
     def test_auth_040_audit_on_successful_login(self, auth_credentials: Dict[str, str]):
         """AUTH-040: Успешный вход записывается в аудит с severity=info."""
         # Запоминаем время ДО запроса
@@ -352,7 +299,7 @@ class TestLoginAudit:
         # Ключевая часть, которая НЕ меняется
         search_substring = f"action=login status=success subject={username}"
         
-        log_entry = self._get_recent_audit_log(search_substring, "info")
+        log_entry = get_recent_audit_log(search_substring, "info")
         
         assert log_entry is not None, (
             f"Audit log for successful login not found. "
@@ -382,7 +329,7 @@ class TestLoginAudit:
         # Эта часть сообщения постоянная
         search_substring = f"action=login status=failure subject={username} reason=invalid_credentials"
         
-        log_entry = self._get_recent_audit_log(search_substring, "warning")
+        log_entry = get_recent_audit_log(search_substring, "warning")
         
         assert log_entry is not None, (
             f"Audit log for failed login not found. "

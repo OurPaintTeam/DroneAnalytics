@@ -10,6 +10,8 @@ import pytest
 import requests
 from typing import Dict, Any, Optional
 
+from .utils import get_recent_audit_log
+
 from .conftest import BACKEND_URL, ELASTIC_URL, JWT_ALGORITHM, REFRESH_TTL_SECONDS, SECRET_KEY
 
 
@@ -35,62 +37,6 @@ def _create_test_jwt(
     if override_payload:
         payload.update(override_payload)
     return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
-
-
-def _get_recent_audit_log(expected_substring: str, severity: str) -> Optional[dict]:
-    """
-    Ищет самую свежую запись аудита, содержащую подстроку и severity.
-    
-    Args:
-        expected_substring: Часть сообщения, которую ожидаем (без IP)
-        severity: Ожидаемый уровень (info/warning)
-            
-    Returns:
-        dict с _source записи или None, если не найдено
-    """        
-    # Ждем применения изменений в ES (eventual consistency)
-    time.sleep(1.5)
-    
-    # Получаем текущее время в миллисекундах для фильтра
-    now_ms = int(time.time() * 1000)
-    # Ищем записи за последние 10 секунд
-    time_range_ms = 10000
-    
-    try:
-        # Поиск с сортировкой по timestamp (desc) - берем самую свежую
-        query = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {"match": {"message": expected_substring}},
-                        {"term": {"severity": severity}},
-                        {
-                            "range": {
-                                "timestamp": {
-                                    "gte": now_ms - time_range_ms,
-                                    "lte": now_ms + time_range_ms  # Небольшой запас на рассинхрон часов
-                                }
-                            }
-                        }
-                    ]
-                }
-            },
-            "sort": [{"timestamp": {"order": "desc"}}],
-            "size": 1
-        }
-        resp = requests.post(
-            f"{ELASTIC_URL}/safety/_search",
-            json=query,
-            timeout=5
-        )
-        if resp.status_code != 200:
-            pytest.skip(f"ElasticSearch returned status {resp.status_code}")
-                
-        hits = resp.json().get("hits", {}).get("hits", [])
-        return hits[0]["_source"] if hits else None
-            
-    except requests.RequestException as e:
-        pytest.skip(f"ElasticSearch unavailable for audit check: {e}")
 
 
 # =============================================================================
@@ -377,7 +323,7 @@ class TestAuthRefreshAudit:
         assert resp.status_code == 200
         
         # Ищем запись аудита через универсальную функцию
-        audit_log = _get_recent_audit_log(
+        audit_log = get_recent_audit_log(
             expected_substring="action=token_refresh",
             severity="info"
         )
@@ -402,7 +348,7 @@ class TestAuthRefreshAudit:
         assert resp.status_code == 401
         
         # Ищем запись о неудаче через универсальную функцию
-        audit_log = _get_recent_audit_log(
+        audit_log = get_recent_audit_log(
             expected_substring="action=token_refresh",
             severity="warning"
         )

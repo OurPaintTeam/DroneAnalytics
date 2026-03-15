@@ -1,5 +1,7 @@
 import requests
-from typing import List
+import pytest
+import time
+from typing import List, Optional
 from .conftest import ELASTIC_URL
 INDICES = ["telemetry", "basic", "event", "safety"]
 
@@ -20,6 +22,60 @@ def elastic_health_check(timeout: int = 30) -> bool:
         time.sleep(1)
     return False
 
+def get_recent_audit_log(expected_substring: str, severity: str) -> Optional[dict]:
+    """
+    Ищет самую свежую запись аудита, содержащую подстроку и severity.
+    
+    Args:
+        expected_substring: Часть сообщения, которую ожидаем (без IP)
+        severity: Ожидаемый уровень (info/warning)
+            
+    Returns:
+        dict с _source записи или None, если не найдено
+    """        
+    # Ждем применения изменений в ES (eventual consistency)
+    time.sleep(1.5)
+    
+    # Получаем текущее время в миллисекундах для фильтра
+    now_ms = int(time.time() * 1000)
+    # Ищем записи за последние 10 секунд
+    time_range_ms = 10000
+    
+    try:
+        # Поиск с сортировкой по timestamp (desc) - берем самую свежую
+        query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"match": {"message": expected_substring}},
+                        {"term": {"severity": severity}},
+                        {
+                            "range": {
+                                "timestamp": {
+                                    "gte": now_ms - time_range_ms,
+                                    "lte": now_ms + time_range_ms  # Небольшой запас на рассинхрон часов
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            "sort": [{"timestamp": {"order": "desc"}}],
+            "size": 1
+        }
+        resp = requests.post(
+            f"{ELASTIC_URL}/safety/_search",
+            json=query,
+            timeout=5
+        )
+        if resp.status_code != 200:
+            pytest.skip(f"ElasticSearch returned status {resp.status_code}")
+                
+        hits = resp.json().get("hits", {}).get("hits", [])
+        return hits[0]["_source"] if hits else None
+            
+    except requests.RequestException as e:
+        pytest.skip(f"ElasticSearch unavailable for audit check: {e}")
 
 def clean_index(index_name: str) -> bool:
     """Удаляет все документы из индекса, не удаляя сам индекс (сохраняет маппинг)."""
