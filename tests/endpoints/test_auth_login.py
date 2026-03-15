@@ -299,7 +299,7 @@ class TestLoginAudit:
         # Ключевая часть, которая НЕ меняется
         search_substring = f"action=login status=success subject={username}"
         
-        log_entry = get_recent_audit_log(search_substring, "info")
+        log_entry = get_recent_audit_log(search_substring, "info", "safety")
         
         assert log_entry is not None, (
             f"Audit log for successful login not found. "
@@ -329,7 +329,7 @@ class TestLoginAudit:
         # Эта часть сообщения постоянная
         search_substring = f"action=login status=failure subject={username} reason=invalid_credentials"
         
-        log_entry = get_recent_audit_log(search_substring, "warning")
+        log_entry = get_recent_audit_log(search_substring, "warning", "safety")
         
         assert log_entry is not None, (
             f"Audit log for failed login not found. "

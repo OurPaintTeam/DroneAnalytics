@@ -127,7 +127,7 @@ class TestTelemetrySuccess:
         assert "apiVersion" not in doc
         
         # Проверка аудита
-        audit = get_recent_audit_log("ingest_telemetry status=success", "info")
+        audit = get_recent_audit_log("ingest_telemetry status=success", "info", "event")
         assert audit is not None
 
     def test_batch_valid_documents(self, api_headers: Dict[str, str]):
@@ -161,7 +161,7 @@ class TestTelemetrySuccess:
         assert count == 5
         
         # Проверка аудита
-        audit = get_recent_audit_log("ingest_telemetry status=success", "info")
+        audit = get_recent_audit_log("ingest_telemetry status=success", "info", "event")
         assert audit is not None
 
     def test_optional_fields_handling(self, api_headers: Dict[str, str]):
@@ -453,7 +453,7 @@ class TestTelemetryPartialSuccess:
         assert len(doc_903) == 1
         
         # Аудит должен показать partial статус
-        audit = get_recent_audit_log("ingest_telemetry status=partial", "info")
+        audit = get_recent_audit_log("ingest_telemetry status=partial", "info", "event")
         assert audit is not None
         assert "accepted=2" in audit["message"]
         assert "rejected=1" in audit["message"]

@@ -23,13 +23,14 @@ def elastic_health_check(timeout: int = 30) -> bool:
         time.sleep(1)
     return False
 
-def get_recent_audit_log(expected_substring: str, severity: str) -> Optional[dict]:
+def get_recent_audit_log(expected_substring: str, severity: str, index_name: str = "safety") -> Optional[dict]:
     """
     Ищет самую свежую запись аудита, содержащую подстроку и severity.
     
     Args:
         expected_substring: Часть сообщения, которую ожидаем (без IP)
         severity: Ожидаемый уровень (info/warning)
+        index_name: Название индекса для поиска (по умолчанию "safety")
             
     Returns:
         dict с _source записи или None, если не найдено
@@ -65,7 +66,7 @@ def get_recent_audit_log(expected_substring: str, severity: str) -> Optional[dic
             "size": 1
         }
         resp = requests.post(
-            f"{ELASTIC_URL}/safety/_search",
+            f"{ELASTIC_URL}/{index_name}/_search",
             json=query,
             timeout=5
         )

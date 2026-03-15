@@ -342,7 +342,8 @@ class TestLogoutAudit:
         # Проверяем аудит
         audit_entry = get_recent_audit_log(
             expected_substring="action=logout status=success",
-            severity="info"
+            severity="info",
+            index_name="safety"
         )
         
         assert audit_entry is not None, "Audit log not found in ElasticSearch"
@@ -365,7 +366,8 @@ class TestLogoutAudit:
         
         audit_entry = get_recent_audit_log(
             expected_substring="action=logout status=failure reason=invalid_refresh_token",
-            severity="warning"
+            severity="warning",
+            index_name="safety"
         )
         
         assert audit_entry is not None, "Warning audit log not found"

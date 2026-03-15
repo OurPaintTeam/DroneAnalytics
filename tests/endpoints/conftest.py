@@ -2,6 +2,7 @@
 import os
 import pytest
 import requests
+import secrets
 from typing import Generator, Dict, Any
 
 from .utils import clean_all_indices, elastic_health_check
@@ -12,7 +13,7 @@ ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 API_KEY = os.getenv("API_KEY", "change-me")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "user")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "password")
-SECRET_KEY = os.getenv("DRONE_SECRET_KEY", "test-secret-key-for-tests").encode("utf-8")
+SECRET_KEY = os.getenv("DRONE_SECRET_KEY", secrets.token_urlsafe(48)).encode("utf-8")
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 JWT_ALGORITHM = "HS256"
