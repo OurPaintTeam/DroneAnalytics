@@ -70,6 +70,18 @@ services:
         condition: service_completed_successfully
     security_opt:
       - no-new-privileges:true
+  tests:
+    profiles:
+      - tests
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    container_name: tests
+    networks:
+      - DE-net
+    depends_on:
+      proxy:
+        condition: service_started
 
 volumes:
   esdata:

@@ -14,14 +14,17 @@ env:
 local: env prod
 
 clean:
+	docker rm tests
 	docker compose down
 
 healthcheck: prod clean
 
 .PHONY: tests
 
-tests: healthcheck
-	cd tests && uv sync && uv run pytest
+tests:
+	docker compose --profile tests up -d --build
+	docker logs -f tests
 
 watch:
+
 	docker compose watch
