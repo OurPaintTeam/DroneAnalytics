@@ -78,7 +78,7 @@ services:
       dockerfile: Dockerfile
     container_name: tests
     networks:
-      - DE-net
+      - DA-net
     depends_on:
       proxy:
         condition: service_started

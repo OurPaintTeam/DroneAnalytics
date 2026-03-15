@@ -26,5 +26,4 @@ tests:
 	docker logs -f tests
 
 watch:
-
 	docker compose watch
