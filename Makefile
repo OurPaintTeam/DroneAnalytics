@@ -14,8 +14,8 @@ env:
 local: env prod
 
 clean:
-	docker rm tests
 	docker compose down
+	docker rm tests
 
 healthcheck: prod clean
 
