@@ -1,8 +1,9 @@
 import requests
 import pytest
 import time
+import os
 from typing import List, Optional
-from .conftest import ELASTIC_URL
+ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 INDICES = ["telemetry", "basic", "event", "safety"]
 
 

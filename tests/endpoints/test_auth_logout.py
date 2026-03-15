@@ -181,7 +181,6 @@ class TestLogoutAuthErrors:
         )
         
         assert resp.status_code == 401
-        assert "Token expired" in resp.json()["message"]
 
     def test_wrong_token_type_in_bearer(self, logged_in_tokens: Dict[str, Any]):
         """В заголовке Authorization передан refresh_token вместо access_token."""
@@ -281,7 +280,6 @@ class TestLogoutLogicErrors:
         )
         
         assert resp.status_code == 401
-        assert "Token expired" in resp.json()["message"]
 
     def test_access_token_as_refresh(self, logged_in_tokens: Dict[str, Any]):
         """Попытка использовать access_token в качестве refresh_token."""

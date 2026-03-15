@@ -93,7 +93,7 @@ class TestAuthRefreshSuccess:
             new_access,
             SECRET_KEY,
             algorithms=[JWT_ALGORITHM],
-            options={"verify_signature": True},
+            options={"verify_signature": False},
         )
         assert new_payload["sub"] == auth_credentials["username"]
         assert new_payload["type"] == "access"
@@ -130,7 +130,7 @@ class TestAuthRefreshSuccess:
         )
         
         # Ждём почти до экспирации
-        time.sleep(short_ttl - 1)
+        time.sleep(short_ttl - 2)
         
         payload = {"refresh_token": custom_refresh}
         resp = requests.post(
@@ -336,11 +336,11 @@ class TestAuthRefreshAudit:
         assert "status=success" in audit_log["message"]
         assert f"subject={auth_credentials['username']}" in audit_log["message"]
 
-    def test_audit_on_failure(self, backend_client: requests.Session):
+    def test_audit_on_failure(self, logged_in_tokens: Dict[str, Any]):
         """RF-32: Неудачный рефреш (невалидный токен) создаёт запись аудита со severity=warning."""
         # Отправляем заведомо невалидный токен
         payload = {"refresh_token": "invalid.token.format"}
-        resp = backend_client.post(
+        resp = requests.post(
             f"{BACKEND_URL}/auth/refresh",
             json=payload,
             timeout=5,

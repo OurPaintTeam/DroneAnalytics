@@ -18,8 +18,6 @@ ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 JWT_ALGORITHM = "HS256"
 JWT_REQUIRED_CLAIMS = ["exp", "iat", "sub", "type", "jti"]
 
-ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
-
 
 @pytest.fixture(scope="session", autouse=True)
 def wait_for_services() -> None:
