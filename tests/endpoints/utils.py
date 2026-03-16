@@ -6,6 +6,16 @@ from typing import List, Optional
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 INDICES = ["telemetry", "basic", "event", "safety"]
 
+def get_timestamp_ms() -> int:
+    """Возвращает текущее время в миллисекундах (как в приложении)."""
+    return int(time.time() * 1000)
+
+def wait_for_elastic_sync(seconds: float = 1.5) -> None:
+    """
+    Ждёт применения изменений в ElasticSearch.
+    ES применяет изменения асинхронно (eventual consistency).
+    """
+    time.sleep(seconds)
 
 def elastic_health_check(timeout: int = 30) -> bool:
     """Проверяет, что ElasticSearch доступен и в статусе green/yellow."""

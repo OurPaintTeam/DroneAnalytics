@@ -8,27 +8,17 @@
 - Частичный успех при пакетной отправке
 - Логирование событий аудита в индекс 'safety'
 """
-import time
 import pytest
 import requests
 from typing import Dict, Any, List, Optional
 
 from .conftest import BACKEND_URL
-from .utils import get_recent_audit_log
+from .utils import get_recent_audit_log, wait_for_elastic_sync, get_timestamp_ms
 
 
 # ============================================================================
 # Вспомогательные функции
 # ============================================================================
-
-def get_timestamp_ms() -> int:
-    """Возвращает текущее время в миллисекундах (как в приложении)."""
-    return int(time.time() * 1000)
-
-
-def wait_for_elastic_sync(seconds: float = 1.5) -> None:
-    """Ждёт применения изменений в Elasticsearch (eventual consistency)."""
-    time.sleep(seconds)
 
 
 def count_docs_in_index(index_name: str, query_filter: Optional[Dict] = None) -> int:

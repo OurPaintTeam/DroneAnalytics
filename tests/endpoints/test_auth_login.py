@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 from .utils import get_recent_audit_log
 
-from .conftest import BACKEND_URL, ELASTIC_URL
+from .conftest import BACKEND_URL
 
 
 # ============================================================================

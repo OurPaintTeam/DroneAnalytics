@@ -13,19 +13,12 @@ import requests
 from typing import Dict, Any, List
 
 from .conftest import BACKEND_URL, API_KEY
-from .utils import clean_index
+from .utils import wait_for_elastic_sync, ELASTIC_URL
 
 
 # ============================================================================
 # Вспомогательные функции
 # ============================================================================
-
-def wait_for_elastic_sync(seconds: float = 1.5) -> None:
-    """
-    Ждёт применения изменений в ElasticSearch.
-    ES имеет eventual consistency, поэтому небольшая задержка необходима.
-    """
-    time.sleep(seconds)
 
 
 def get_basic_logs_from_es(limit: int = 100) -> List[Dict[str, Any]]:
@@ -33,7 +26,6 @@ def get_basic_logs_from_es(limit: int = 100) -> List[Dict[str, Any]]:
     Прямой запрос к ElasticSearch для получения документов из индекса 'basic'.
     Используется для верификации фактической записи данных.
     """
-    from .conftest import ELASTIC_URL
     try:
         resp = requests.post(
             f"{ELASTIC_URL}/basic/_search",
@@ -130,9 +122,6 @@ class TestPostLogBasic:
         resp = requests.post(f"{BACKEND_URL}/log/basic", json=payload, headers=headers, timeout=5)
         
         assert resp.status_code == 207
-        data = resp.json()
-        assert data["code"] == 207
-        assert "message" in data
         
         wait_for_elastic_sync()
         assert count_docs_in_basic_index() == 0

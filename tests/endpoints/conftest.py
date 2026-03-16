@@ -9,7 +9,6 @@ from .utils import clean_all_indices, elastic_health_check
 
 # Конфигурация из переменных окружения
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8080")
-ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 API_KEY = os.getenv("API_KEY", "change-me")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "user")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "password")

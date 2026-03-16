@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 
 from .utils import get_recent_audit_log
 
-from .conftest import BACKEND_URL, ELASTIC_URL, JWT_ALGORITHM, REFRESH_TTL_SECONDS, SECRET_KEY
+from .conftest import BACKEND_URL, JWT_ALGORITHM, REFRESH_TTL_SECONDS, SECRET_KEY
 
 
 # =============================================================================
