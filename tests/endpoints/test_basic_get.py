@@ -4,7 +4,7 @@ import requests
 from typing import Dict, Any, List
 
 from .conftest import BACKEND_URL
-from .utils import clean_index, wait_for_elastic_sync, get_timestamp_ms
+from .utils import wait_for_elastic_sync, get_timestamp_ms
 
 
 # ============================================================================
@@ -160,7 +160,7 @@ class TestGetBasicPagination:
         """TC-004: Первая страница, limit=10."""
         base_ts = get_timestamp_ms()
         write_basic_logs(25, base_timestamp=base_ts, message_prefix="PagTest_P1")
-        wait_for_elastic_sync()  # ← КРИТИЧНО: ждём синхронизации с ES
+        wait_for_elastic_sync()
         
         resp = get_basic_logs(bearer_headers, limit=10, page=1)
         assert resp.status_code == 200
@@ -173,7 +173,7 @@ class TestGetBasicPagination:
         """TC-005: Вторая страница, limit=10."""
         base_ts = get_timestamp_ms()
         write_basic_logs(25, base_timestamp=base_ts, message_prefix="PagTest_P2")
-        wait_for_elastic_sync()  # ← КРИТИЧНО: ждём синхронизации с ES
+        wait_for_elastic_sync()
         
         # Получаем первую страницу для сравнения
         resp1 = get_basic_logs(bearer_headers, limit=10, page=1)
@@ -192,7 +192,7 @@ class TestGetBasicPagination:
         """TC-006: Последняя неполная страница (25 логов, limit=10, page=3)."""
         base_ts = get_timestamp_ms()
         write_basic_logs(25, base_timestamp=base_ts, message_prefix="PagTest_P3")
-        wait_for_elastic_sync()  # ← КРИТИЧНО: ждём синхронизации с ES
+        wait_for_elastic_sync()
         
         resp = get_basic_logs(bearer_headers, limit=10, page=3)
         assert resp.status_code == 200
