@@ -8,8 +8,10 @@ services:
       - 8080
     networks:
       - DA-net
+    secrets:
+      - backend.yaml
     env_file:
-      - ./backend/.env
+      - ./configs/backend.env
     depends_on:
       - elastic
     develop:
@@ -67,8 +69,8 @@ services:
       - source: proxy
         target: /etc/nginx/nginx.conf
     secrets:
-      - proxy.crt # mount to /run/secrets/proxy.crt - always
-      - proxy.key # mount to /run/secrets/proxy.key - always
+      - proxy.crt
+      - proxy.key
     depends_on:
       backend:
         condition: service_started
@@ -92,6 +94,8 @@ secrets:
     file: ./secrets/proxy.crt
   proxy.key:
     file: ./secrets/proxy.key
+  backend.yaml:
+    file: ./secrets/backend.yaml
 
 volumes:
   esdata:
