@@ -19,7 +19,7 @@ clean:
 
 healthcheck: prod clean
 
-.PHONY: tests
+.PHONY: tests secrets
 
 tests: healthcheck
 	cd tests && uv sync && uv run pytest
