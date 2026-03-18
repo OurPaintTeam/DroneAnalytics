@@ -1,101 +1,59 @@
-import hmac
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException, Request
-
-from app.audit import audit_safety
-from app.config import AUTH_USERNAME
-from app.dependencies import require_bearer_payload
+# backend/app/routes/auth.py (фрагмы замены функции auth_login и auth_refresh)
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from app.models import LoginRequest, RefreshTokenRequest, TokenPairResponse
-from app.security import (
-    AUTH_PASSWORD_HASH,
-    auth_error,
-    consume_refresh_token,
-    decode_refresh_token,
-    issue_access_token,
-    issue_refresh_token,
-    verify_password,
-)
+from app.security import issue_access_token, issue_refresh_token, consume_refresh_token, verify_user
 
-
-router = APIRouter(prefix="/auth", tags=["auth"])
-
+router = APIRouter()
 
 @router.post("/login", response_model=TokenPairResponse)
-def auth_login(payload: LoginRequest, request: Request) -> TokenPairResponse:
+def auth_login(payload: LoginRequest, request: Request, response: Response) -> TokenPairResponse:
     client_ip = request.client.host if request.client else "unknown"
-    username_ok = hmac.compare_digest(payload.username, AUTH_USERNAME)
-    password_ok = verify_password(payload.password, AUTH_PASSWORD_HASH)
-    if not (username_ok and password_ok):
-        audit_safety(
-            "warning",
-            f"action=login status=failure subject={payload.username} client_ip={client_ip} reason=invalid_credentials",
-        )
+    if not verify_user(payload.username, payload.password):
+        audit_safety("warning", f"action=login status=failure subject={payload.username} client_ip={client_ip} reason=invalid_credentials")
         raise auth_error("Invalid credentials")
+
     access_token, expires_in = issue_access_token(payload.username)
     refresh_token = issue_refresh_token(payload.username)
-    audit_safety(
-        "info",
-        f"action=login status=success subject={payload.username} client_ip={client_ip}",
-    )
-    return TokenPairResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="Bearer",
-        expires_in=expires_in,
+
+    # Set refresh token in HttpOnly cookie (secure should be True in prod)
+    secure_flag = request.url.scheme == "https"  # или ставить по ENV
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=secure_flag,
+        samesite="Lax",  # или "Strict" по желанию
+        path="/",        # путь cookie — возможно /api или /
+        max_age=None,    # можно установить REFRESH_TTL_SECONDS
     )
 
+    audit_safety("info", f"action=login status=success subject={payload.username} client_ip={client_ip}")
+    # возвращаем access_token в теле; не возвращаем refresh_token (cookie уже установлена)
+    return TokenPairResponse(access_token=access_token, refresh_token="", token_type="Bearer")
 
 @router.post("/refresh", response_model=TokenPairResponse)
-def auth_refresh(payload: RefreshTokenRequest, request: Request) -> TokenPairResponse:
-    client_ip = request.client.host if request.client else "unknown"
-    try:
-        subject = consume_refresh_token(payload.refresh_token)
-    except HTTPException:
-        audit_safety(
-            "warning",
-            f"action=token_refresh status=failure client_ip={client_ip} reason=invalid_token",
-        )
-        raise
+def auth_refresh(request: Request, response: Response) -> TokenPairResponse:
+    # 1) try to read cookie
+    refresh_token = request.cookies.get("refresh_token")
+    # 2) fallback: if client still passes it in body
+    if not refresh_token:
+        try:
+            body = await request.json()  # если использует pydantic model — альтернативно принимать RefreshTokenRequest
+            refresh_token = body.get("refresh_token")
+        except Exception:
+            refresh_token = None
+
+    if not refresh_token:
+        raise auth_error("Missing refresh token")
+
+    subject = consume_refresh_token(refresh_token)
+    # issue new access and refresh tokens
     access_token, expires_in = issue_access_token(subject)
-    refresh_token = issue_refresh_token(subject)
-    audit_safety(
-        "info",
-        f"action=token_refresh status=success subject={subject} client_ip={client_ip}",
-    )
-    return TokenPairResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="Bearer",
-        expires_in=expires_in,
-    )
+    new_refresh_token = issue_refresh_token(subject)
 
+    # rotate cookie
+    secure_flag = request.url.scheme == "https"
+    response.set_cookie("refresh_token", new_refresh_token, httponly=True, secure=secure_flag, samesite="Lax", path="/")
 
-@router.post("/logout")
-def auth_logout(
-    payload: RefreshTokenRequest,
-    request: Request,
-    access_payload: dict[str, Any] = Depends(require_bearer_payload),
-) -> dict[str, str]:
-    client_ip = request.client.host if request.client else "unknown"
-    subject = str(access_payload["sub"])
-    try:
-        refresh_payload = decode_refresh_token(payload.refresh_token)
-    except HTTPException:
-        audit_safety(
-            "warning",
-            f"action=logout status=failure subject={subject} client_ip={client_ip} reason=invalid_refresh_token",
-        )
-        raise
-    refresh_subject = str(refresh_payload.get("sub", ""))
-    if refresh_subject != subject:
-        audit_safety(
-            "warning",
-            f"action=logout status=failure subject={subject} client_ip={client_ip} reason=token_subject_mismatch",
-        )
-        raise auth_error("Refresh token does not belong to current user")
-    audit_safety(
-        "info",
-        f"action=logout status=success subject={subject} client_ip={client_ip}",
-    )
-    return {"status": "ok"}
+    audit_safety("info", f"action=token_refresh status=success subject={subject}")
+    return TokenPairResponse(access_token=access_token, refresh_token="", token_type="Bearer")
