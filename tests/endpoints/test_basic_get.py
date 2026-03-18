@@ -3,7 +3,7 @@ import pytest
 import requests
 from typing import Dict, Any, List
 
-from .conftest import BACKEND_URL
+from .conftest import BACKEND_URL, API_KEY
 from .utils import wait_for_elastic_sync, get_timestamp_ms
 
 
@@ -21,7 +21,7 @@ def write_basic_logs(count: int, base_timestamp: int = None,
         base_timestamp = get_timestamp_ms()
     
     api_headers = {
-        "X-API-Key": "change-me",  # Значение по умолчанию из .env
+        "X-API-Key": API_KEY,  # Значение по умолчанию из .env
         "Content-Type": "application/json"
     }
     
@@ -322,10 +322,9 @@ class TestGetDataIntegrity:
         logs = resp.json()
         assert logs[0]["message"] == special_msg
 
-    def test_timestamp_zero_boundary(self, bearer_headers: Dict[str, str]):
+    def test_timestamp_zero_boundary(self, bearer_headers: Dict[str, str], api_headers):
         """TC-015: Timestamp = 0 (граничное значение) обрабатывается корректно."""
         # Записываем лог с timestamp = 0
-        api_headers = {"X-API-Key": "change-me", "Content-Type": "application/json"}
         payload = [{"timestamp": 0, "message": "EpochZero"}]
         resp_post = requests.post(
             f"{BACKEND_URL}/log/basic",

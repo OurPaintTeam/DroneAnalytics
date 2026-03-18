@@ -9,7 +9,7 @@ from .utils import clean_all_indices, elastic_health_check
 
 # Конфигурация из переменных окружения
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8080")
-API_KEY = os.getenv("API_KEY", "change-me")
+API_KEY = os.getenv("DRONE_API_KEY", "change-me-api-key")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "user")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "password")
 SECRET_KEY = os.getenv("DRONE_SECRET_KEY", secrets.token_urlsafe(48)).encode("utf-8")
