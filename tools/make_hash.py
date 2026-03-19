@@ -1,17 +1,16 @@
-# tools/make_user_hash.py
-import sys
-import bcrypt
-from app.config import PASSWORD_SALT
+from __future__ import annotations
 
-def _password_bytes(password: str) -> bytes:
-    return (password + PASSWORD_SALT).encode("utf-8")
+import sys
+
+import bcrypt
+
 
 def hash_password(plain_password: str) -> str:
-    return bcrypt.hashpw(_password_bytes(plain_password), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python make_user_hash.py <password>")
-        sys.exit(1)
-    pw = sys.argv[1]
-    print(hash_password(pw))
+        print("Usage: python tools/make_hash.py <password>")
+        raise SystemExit(1)
+    print(hash_password(sys.argv[1]))

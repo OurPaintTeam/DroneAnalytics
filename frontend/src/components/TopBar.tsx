@@ -40,35 +40,21 @@ function TopBarLayout() {
     const navigate = useNavigate()
 
     const handleLogout = async () => {
-        const access = localStorage.getItem("access_token")
-        const refresh = localStorage.getItem("refresh_token")
-
         try {
             await fetch(`${BACKEND_URL}/auth/logout`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${access}`
-                },
-                body: JSON.stringify({
-                    refresh_token: refresh
-                })
+                credentials: "include"
             })
         } catch {}
 
         localStorage.removeItem("access_token")
-        localStorage.removeItem("refresh_token")
-
         navigate("/login")
     }
 
     return (
         <div className="min-h-screen flex flex-col bg-white text-gray-800">
-            {/* TOP BAR */}
             <header
                 className="fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-8 shadow-sm border-b bg-white z-50">
-
-                {/* Logo */}
                 <div className="flex items-center gap-3 flex-shrink-0">
                     <img src={OP_logo} alt="OP Logo" className="h-9 ml-3"/>
 
@@ -79,7 +65,6 @@ function TopBarLayout() {
                     <img src={SPbguLogo} alt="SPbGU Logo" className="h-20 ml-3"/>
                 </div>
 
-                {/* Desktop navigation */}
                 <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                     {NAV_ITEMS.map(({to, label, end}) => (
                         <NavLink key={to} to={to} end={end} className={navLinkClass}>
@@ -98,7 +83,6 @@ function TopBarLayout() {
                     </button>
                 </nav>
 
-                {/* Hamburger (mobile) */}
                 <button
                     className="md:hidden p-2"
                     onClick={() => setMenuOpen(prev => !prev)}
@@ -119,7 +103,6 @@ function TopBarLayout() {
                 </button>
             </header>
 
-            {/* Mobile menu */}
             {menuOpen && (
                 <div className="md:hidden fixed top-16 left-0 right-0 bg-white shadow-md flex flex-col gap-4 p-4 z-40">
                     {NAV_ITEMS.map(({ to, label, end }) => (
@@ -134,7 +117,6 @@ function TopBarLayout() {
                         </NavLink>
                     ))}
 
-                    {/* Logout button */}
                     <button
                         className="px-4 py-2 rounded-lg text-white transition-colors duration-200"
                         style={{ backgroundColor: RED }}
@@ -148,7 +130,6 @@ function TopBarLayout() {
                 </div>
             )}
 
-            {/* Page content */}
             <main className="flex-1 pt-16">
                 <Outlet/>
             </main>

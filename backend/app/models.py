@@ -18,7 +18,7 @@ class RefreshTokenRequest(StrictModel):
 
 class TokenPairResponse(StrictModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str = ""
     token_type: str = "Bearer"
     expires_in: int
 
@@ -65,7 +65,7 @@ class EventLogItem(StrictModel):
     service_id: int = Field(ge=1)
     severity: Literal["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"] | None = None
     message: str = Field(min_length=1, max_length=1024)
-    
+
 
 class TelemetryLogResponse(StrictModel):
     timestamp: int = Field(ge=0)

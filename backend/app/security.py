@@ -1,46 +1,107 @@
-# backend/app/security.py (фрагменты)
+from __future__ import annotations
+
+import hmac
+import time
+import uuid
+from typing import Any
 
 import bcrypt
-import hmac
 import jwt
-from fastapi import HTTPException
-from typing import Any
+from fastapi import HTTPException, status
+
 from app.config import (
     ACCESS_TTL_SECONDS,
-    REFRESH_TTL_SECONDS,
-    SECRET_KEY,
-    AUTH_USERS,
-    AUTH_USERNAME,
     AUTH_PASSWORD,
     AUTH_PASSWORD_HASH,
-    PASSWORD_SALT,
+    AUTH_USERNAME,
+    AUTH_USERS,
+    JWT_ALGORITHM,
+    REFRESH_TTL_SECONDS,
+    SECRET_KEY,
 )
 
-# helper: соль + bcrypt
-def _password_bytes(password: str) -> bytes:
-    # объединяем с солью перед хешированием/проверкой, чтобы усилить
-    return (password + PASSWORD_SALT).encode("utf-8")
+
+def auth_error(message: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"code": 401, "message": message})
+
+
+def _utc_ts() -> int:
+    return int(time.time())
+
 
 def hash_password(plain_password: str) -> str:
-    return bcrypt.hashpw(_password_bytes(plain_password), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain_password: str, stored_hash: str) -> bool:
     try:
-        return bcrypt.checkpw(_password_bytes(plain_password), stored_hash.encode("utf-8"))
+        return bcrypt.checkpw(plain_password.encode("utf-8"), stored_hash.encode("utf-8"))
     except Exception:
         return False
 
+
 def verify_user(username: str, password: str) -> bool:
-    # 1) try load from AUTH_USERS (secrets)
     if AUTH_USERS:
         stored = AUTH_USERS.get(username)
-        if stored:
-            return verify_password(password, stored)
-        # user not found in secret users
+        return bool(stored and verify_password(password, stored))
+
+    if not hmac.compare_digest(username, AUTH_USERNAME):
         return False
-    # 2) fallback на старую одиночную пару (env)
-    username_ok = hmac.compare_digest(username, AUTH_USERNAME)
-    # AUTH_PASSWORD_HASH: если задан — используем его, иначе генерируем хеш от AUTH_PASSWORD
-    env_hash = AUTH_PASSWORD_HASH or hash_password(AUTH_PASSWORD)
-    password_ok = verify_password(password, env_hash)
-    return username_ok and password_ok
+
+    if AUTH_PASSWORD_HASH:
+        return verify_password(password, AUTH_PASSWORD_HASH)
+
+    return hmac.compare_digest(password, AUTH_PASSWORD)
+
+
+def _encode_token(subject: str, token_type: str, ttl_seconds: int) -> str:
+    now = _utc_ts()
+    payload = {
+        "sub": subject,
+        "type": token_type,
+        "iat": now,
+        "exp": now + ttl_seconds,
+        "jti": uuid.uuid4().hex,
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def issue_access_token(subject: str) -> tuple[str, int]:
+    token = _encode_token(subject, "access", ACCESS_TTL_SECONDS)
+    return token, ACCESS_TTL_SECONDS
+
+
+def issue_refresh_token(subject: str) -> str:
+    return _encode_token(subject, "refresh", REFRESH_TTL_SECONDS)
+
+
+def decode_access_token(token: str) -> dict[str, Any]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError as exc:
+        raise auth_error("Token expired") from exc
+    except jwt.InvalidTokenError as exc:
+        raise auth_error("Invalid access token") from exc
+
+    if payload.get("type") != "access":
+        raise auth_error("Invalid access token")
+    if not payload.get("sub"):
+        raise auth_error("Invalid access token")
+    return payload
+
+
+def consume_refresh_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError as exc:
+        raise auth_error("Refresh token expired") from exc
+    except jwt.InvalidTokenError as exc:
+        raise auth_error("Invalid refresh token") from exc
+
+    if payload.get("type") != "refresh":
+        raise auth_error("Invalid refresh token")
+
+    subject = str(payload.get("sub", "")).strip()
+    if not subject:
+        raise auth_error("Invalid refresh token")
+    return subject
