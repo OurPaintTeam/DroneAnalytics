@@ -33,20 +33,22 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 
 @router.post("/login", response_model=TokenPairResponse)
-def auth_login(payload: LoginRequest, request: Request, response: Response) -> TokenPairResponse:
-    client_ip = request.client.host if request.client else "unknown"
+def auth_login(payload: LoginRequest, request: Request, response: Response):
     if not verify_user(payload.username, payload.password):
-        audit_safety(
-            "warning",
-            f"action=login status=failure subject={payload.username} client_ip={client_ip} reason=invalid_credentials",
-        )
         raise auth_error("Invalid credentials")
 
     access_token, expires_in = issue_access_token(payload.username)
     refresh_token = issue_refresh_token(payload.username)
-    _set_refresh_cookie(response, refresh_token)
 
-    audit_safety("info", f"action=login status=success subject={payload.username} client_ip={client_ip}")
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        path="/",
+    )
+
     return TokenPairResponse(
         access_token=access_token,
         refresh_token="",
@@ -56,24 +58,26 @@ def auth_login(payload: LoginRequest, request: Request, response: Response) -> T
 
 
 @router.post("/refresh", response_model=TokenPairResponse)
-def auth_refresh(
-    request: Request,
-    response: Response,
-    payload: RefreshTokenRequest | None = Body(default=None),
-) -> TokenPairResponse:
+def auth_refresh(request: Request, response: Response):
     refresh_token = request.cookies.get("refresh_token")
-    if not refresh_token and payload is not None:
-        refresh_token = payload.refresh_token
 
     if not refresh_token:
         raise auth_error("Missing refresh token")
 
     subject = consume_refresh_token(refresh_token)
+
     access_token, expires_in = issue_access_token(subject)
     new_refresh_token = issue_refresh_token(subject)
-    _set_refresh_cookie(response, new_refresh_token)
 
-    audit_safety("info", f"action=token_refresh status=success subject={subject}")
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        path="/",
+    )
+
     return TokenPairResponse(
         access_token=access_token,
         refresh_token="",
@@ -81,24 +85,7 @@ def auth_refresh(
         expires_in=expires_in,
     )
 
-
 @router.post("/logout")
-def auth_logout(
-    request: Request,
-    response: Response,
-    payload: RefreshTokenRequest | None = Body(default=None),
-) -> dict[str, str]:
-    refresh_token = request.cookies.get("refresh_token")
-    if not refresh_token and payload is not None:
-        refresh_token = payload.refresh_token
-
-    subject = "unknown"
-    if refresh_token:
-        try:
-            subject = consume_refresh_token(refresh_token)
-        except Exception:
-            subject = "unknown"
-
-    _clear_refresh_cookie(response)
-    audit_safety("info", f"action=logout status=success subject={subject}")
+def auth_logout(response: Response):
+    response.delete_cookie("refresh_token", path="/")
     return {"status": "ok"}

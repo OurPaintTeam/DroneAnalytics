@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import hmac
 import time
@@ -33,25 +32,23 @@ def hash_password(plain_password: str) -> str:
     return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
-def verify_password(plain_password: str, stored_hash: str) -> bool:
+
+def verify_password(password: str, password_hash: str) -> bool:
     try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), stored_hash.encode("utf-8"))
+        return bcrypt.checkpw(
+            password.encode("utf-8"),
+            password_hash.encode("utf-8"),
+        )
     except Exception:
         return False
 
 
 def verify_user(username: str, password: str) -> bool:
-    if AUTH_USERS:
-        stored = AUTH_USERS.get(username)
-        return bool(stored and verify_password(password, stored))
-
-    if not hmac.compare_digest(username, AUTH_USERNAME):
+    stored_hash = AUTH_USERS.get(username)
+    if not stored_hash:
         return False
 
-    if AUTH_PASSWORD_HASH:
-        return verify_password(password, AUTH_PASSWORD_HASH)
-
-    return hmac.compare_digest(password, AUTH_PASSWORD)
+    return verify_password(password, stored_hash)
 
 
 def _encode_token(subject: str, token_type: str, ttl_seconds: int) -> str:
