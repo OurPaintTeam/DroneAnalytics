@@ -45,25 +45,6 @@ def _normalize_api_keys(raw: Any) -> list[str]:
         return []
     return [str(key) for key in raw if str(key)]
 
-
-def _parse_cors_origins(raw: str | None) -> list[str]:
-    if not raw:
-        return []
-    value = raw.strip()
-    if value == "*":
-        return [
-            "http://localhost",
-            "https://localhost",
-            "http://127.0.0.1",
-            "https://127.0.0.1",
-            "http://localhost:5173",
-            "https://localhost:5173",
-            "http://127.0.0.1:5173",
-            "https://127.0.0.1:5173",
-        ]
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
 _backend_secrets = _load_backend_secrets()
 
 _secret_key = _backend_secrets.get("secret_key")
@@ -75,7 +56,11 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
-CORS_ORIGINS = _parse_cors_origins(os.getenv("DRONE_CORS_ORIGINS", "*"))
+CORS_ORIGINS = [
+    x.strip()
+    for x in os.getenv("DRONE_CORS_ORIGINS", "http://localhost:5173").split(",")
+    if x.strip()
+]
 COOKIE_SECURE = True
 COOKIE_SAMESITE = "Lax"
 API_KEYS = _normalize_api_keys(_backend_secrets.get("api_keys", []))
