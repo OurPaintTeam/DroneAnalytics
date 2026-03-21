@@ -2,9 +2,9 @@
 
 1) `proxy.conf` — nginx-конфиг для проксирования запросов. `/api/*` идёт на бэкенд, `/` — на фронтенд.
 2) `frontend.conf` — nginx-конфиг для фронтенда.
-3) `backend.env` — не секретные параметры бэкенда. Сейчас используются:
+3) `backend.env` — не секретные параметры бэкенда. Формат:
 ```env
-DRONE_CORS_ORIGINS=http://localhost,https://localhost,http://127.0.0.1,http://127.0.0.1:5173,http://localhost:5173
+DRONE_CORS_ORIGINS=*
 ELASTIC_URL=http://elastic:9200
 ```
 4) `elastic.env` — переменные окружения для Elasticsearch.

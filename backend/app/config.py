@@ -58,10 +58,10 @@ REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 CORS_ORIGINS = [
     x.strip()
-    for x in os.getenv("DRONE_CORS_ORIGINS", "http://localhost:5173").split(",")
+    for x in os.getenv("DRONE_CORS_ORIGINS", "*").split(",")
     if x.strip()
 ]
 COOKIE_SECURE = True
-COOKIE_SAMESITE = "Lax"
+COOKIE_SAMESITE = "Strict"
 API_KEYS = _normalize_api_keys(_backend_secrets.get("api_keys", []))
 AUTH_USERS = _normalize_users(_backend_secrets.get("users", {}))
