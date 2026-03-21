@@ -1,5 +1,3 @@
-
-import hmac
 import time
 import uuid
 from typing import Any
@@ -8,16 +6,7 @@ import bcrypt
 import jwt
 from fastapi import HTTPException, status
 
-from app.config import (
-    ACCESS_TTL_SECONDS,
-    AUTH_PASSWORD,
-    AUTH_PASSWORD_HASH,
-    AUTH_USERNAME,
-    AUTH_USERS,
-    JWT_ALGORITHM,
-    REFRESH_TTL_SECONDS,
-    SECRET_KEY,
-)
+from app.config import ACCESS_TTL_SECONDS, AUTH_USERS, JWT_ALGORITHM, REFRESH_TTL_SECONDS, SECRET_KEY
 
 
 def auth_error(message: str) -> HTTPException:
@@ -30,7 +19,6 @@ def _utc_ts() -> int:
 
 def hash_password(plain_password: str) -> str:
     return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
 
 
 def verify_password(password: str, password_hash: str) -> bool:
@@ -47,7 +35,6 @@ def verify_user(username: str, password: str) -> bool:
     stored_hash = AUTH_USERS.get(username)
     if not stored_hash:
         return False
-
     return verify_password(password, stored_hash)
 
 

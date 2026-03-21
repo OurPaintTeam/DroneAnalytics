@@ -1,17 +1,8 @@
-from __future__ import annotations
+from fastapi import APIRouter, Request, Response
 
-from fastapi import APIRouter, Body, Request, Response
-
-from app.audit import audit_safety
 from app.config import COOKIE_SAMESITE, COOKIE_SECURE, REFRESH_TTL_SECONDS
-from app.models import LoginRequest, RefreshTokenRequest, TokenPairResponse
-from app.security import (
-    auth_error,
-    consume_refresh_token,
-    issue_access_token,
-    issue_refresh_token,
-    verify_user,
-)
+from app.models import LoginRequest, TokenPairResponse
+from app.security import auth_error, consume_refresh_token, issue_access_token, issue_refresh_token, verify_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -33,25 +24,16 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 
 @router.post("/login", response_model=TokenPairResponse)
-def auth_login(payload: LoginRequest, request: Request, response: Response):
+def auth_login(payload: LoginRequest, response: Response):
     if not verify_user(payload.username, payload.password):
         raise auth_error("Invalid credentials")
 
     access_token, expires_in = issue_access_token(payload.username)
     refresh_token = issue_refresh_token(payload.username)
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=True,
-        samesite="Lax",
-        path="/",
-    )
+    _set_refresh_cookie(response, refresh_token)
 
     return TokenPairResponse(
         access_token=access_token,
-        refresh_token="",
         token_type="Bearer",
         expires_in=expires_in,
     )
@@ -60,32 +42,22 @@ def auth_login(payload: LoginRequest, request: Request, response: Response):
 @router.post("/refresh", response_model=TokenPairResponse)
 def auth_refresh(request: Request, response: Response):
     refresh_token = request.cookies.get("refresh_token")
-
     if not refresh_token:
         raise auth_error("Missing refresh token")
 
     subject = consume_refresh_token(refresh_token)
-
     access_token, expires_in = issue_access_token(subject)
     new_refresh_token = issue_refresh_token(subject)
-
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        secure=True,
-        samesite="Lax",
-        path="/",
-    )
+    _set_refresh_cookie(response, new_refresh_token)
 
     return TokenPairResponse(
         access_token=access_token,
-        refresh_token="",
         token_type="Bearer",
         expires_in=expires_in,
     )
 
+
 @router.post("/logout")
 def auth_logout(response: Response):
-    response.delete_cookie("refresh_token", path="/")
+    _clear_refresh_cookie(response)
     return {"status": "ok"}

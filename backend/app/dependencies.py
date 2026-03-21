@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
 from app.audit import audit_safety
-from app.config import API_KEY
+from app.config import API_KEYS
 from app.security import auth_error, decode_access_token
 
 
@@ -14,7 +14,7 @@ api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 def require_api_key(api_key: str | None = Depends(api_key_scheme)) -> str:
-    if not api_key or not hmac.compare_digest(api_key, API_KEY):
+    if not api_key or not any(hmac.compare_digest(api_key, key) for key in API_KEYS):
         audit_safety("warning", "action=api_key_auth status=failure reason=invalid_api_key")
         raise auth_error("Invalid API key")
     return api_key

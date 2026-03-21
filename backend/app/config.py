@@ -4,7 +4,7 @@ from typing import Any
 import yaml
 
 
-def _load_backend_secrets(path="/run/secrets/backend.yaml") -> dict[str, Any]:
+def _load_backend_secrets(path: str = "/run/secrets/backend.yaml") -> dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -38,23 +38,45 @@ def _normalize_users(raw: Any) -> dict[str, str]:
     return normalized
 
 
+def _normalize_api_keys(raw: Any) -> list[str]:
+    if isinstance(raw, str):
+        return [raw] if raw else []
+    if not isinstance(raw, list):
+        return []
+    return [str(key) for key in raw if str(key)]
+
+
+def _parse_cors_origins(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    value = raw.strip()
+    if value == "*":
+        return [
+            "http://localhost",
+            "https://localhost",
+            "http://127.0.0.1",
+            "https://127.0.0.1",
+            "http://localhost:5173",
+            "https://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://127.0.0.1:5173",
+        ]
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 _backend_secrets = _load_backend_secrets()
 
-secret_key = _backend_secrets.get("secret_key")
-if not isinstance(secret_key, str) or not secret_key:
+_secret_key = _backend_secrets.get("secret_key")
+if not isinstance(_secret_key, str) or not _secret_key:
     raise RuntimeError("secret_key is required in backend.yaml")
 
-SECRET_KEY = secret_key.encode("utf-8")
-
+SECRET_KEY = _secret_key.encode("utf-8")
 JWT_ALGORITHM = "HS256"
-
-API_KEYS = _backend_secrets.get("api_keys", [])
-if isinstance(API_KEYS, str):
-    API_KEYS = [API_KEYS]
-elif not isinstance(API_KEYS, list):
-    API_KEYS = []
-
-AUTH_USERS = _normalize_users(_backend_secrets.get("users", {}))
-
+ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
+REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
+ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
+CORS_ORIGINS = _parse_cors_origins(os.getenv("DRONE_CORS_ORIGINS", "*"))
 COOKIE_SECURE = True
 COOKIE_SAMESITE = "Lax"
+API_KEYS = _normalize_api_keys(_backend_secrets.get("api_keys", []))
+AUTH_USERS = _normalize_users(_backend_secrets.get("users", {}))
