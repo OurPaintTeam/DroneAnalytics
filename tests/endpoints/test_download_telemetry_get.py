@@ -8,29 +8,12 @@ import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync
+from .utils import wait_for_elastic_sync, parse_csv_from_response, get_csv_headers
 
 
 # =============================================================================
 # Вспомогательные функции
 # =============================================================================
-
-
-def parse_csv_from_response(response: requests.Response) -> List[Dict[str, str]]:
-    """
-    Парсит CSV из StreamingResponse.
-    Возвращает список словарей, где ключи — заголовки колонок.
-    """
-    content = response.content.decode('utf-8')
-    reader = csv.DictReader(io.StringIO(content))
-    return list(reader)
-
-
-def get_csv_headers(response: requests.Response) -> List[str]:
-    """Извлекает заголовки колонок из CSV ответа."""
-    content = response.content.decode('utf-8')
-    reader = csv.reader(io.StringIO(content))
-    return next(reader)
 
 
 def get_filename_from_disposition(headers: Dict[str, str]) -> Optional[str]:

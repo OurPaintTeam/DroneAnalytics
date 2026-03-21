@@ -1,33 +1,14 @@
 """Тесты для GET /log/download/basic — экспорт логов в CSV."""
-import csv
-import io
 from typing import List, Dict, Any, Optional
 
 import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync
+from .utils import wait_for_elastic_sync, parse_csv_from_response, get_csv_headers
 
 
 # --- Вспомогательные функции ---
-
-def parse_csv_response(response: requests.Response) -> List[Dict[str, str]]:
-    """
-    Парсит CSV-ответ от сервера.
-    Возвращает список словарей, где ключи — заголовки CSV.
-    """
-    content = response.content.decode('utf-8')
-    reader = csv.DictReader(io.StringIO(content))
-    return list(reader)
-
-
-def get_csv_headers(response: requests.Response) -> List[str]:
-    """Извлекает заголовки CSV из ответа."""
-    content = response.content.decode('utf-8')
-    reader = csv.reader(io.StringIO(content))
-    return next(reader)
-
 
 def insert_basic_logs(api_headers: Dict[str, str], logs: List[Dict[str, Any]]) -> None:
     """Вспомогательная функция для записи логов через POST /log/basic."""
@@ -54,7 +35,7 @@ class TestDownloadBasicEmpty:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 0
         headers = get_csv_headers(resp)
         assert headers == ["timestamp", "message"]
@@ -76,7 +57,7 @@ class TestDownloadBasicContent:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert rows[0]["timestamp"] == str(timestamp)
         assert rows[0]["message"] == "Test"
@@ -94,7 +75,7 @@ class TestDownloadBasicContent:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 5
 
     def test_sorting_timestamp_desc(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
@@ -110,7 +91,7 @@ class TestDownloadBasicContent:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         returned_ts = [int(row["timestamp"]) for row in rows]
         assert returned_ts == sorted(returned_ts, reverse=True)
 
@@ -131,7 +112,7 @@ class TestDownloadBasicFiltering:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 2
         timestamps = [int(row["timestamp"]) for row in rows]
         assert all(ts >= 2000 for ts in timestamps)
@@ -149,7 +130,7 @@ class TestDownloadBasicFiltering:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 2
         timestamps = [int(row["timestamp"]) for row in rows]
         assert all(ts <= 2000 for ts in timestamps)
@@ -167,7 +148,7 @@ class TestDownloadBasicFiltering:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 2
         timestamps = [int(row["timestamp"]) for row in rows]
         assert 2000 in timestamps
@@ -186,7 +167,7 @@ class TestDownloadBasicFiltering:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 0
 
     def test_filter_boundary_equal(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
@@ -207,7 +188,7 @@ class TestDownloadBasicFiltering:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert rows[0]["message"] == "Exact"
 
@@ -224,7 +205,7 @@ class TestDownloadBasicFiltering:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 0
 
 
@@ -243,7 +224,7 @@ class TestDownloadBasicCSVEscaping:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert rows[0]["message"] == "Error, code 404"
 
@@ -259,7 +240,7 @@ class TestDownloadBasicCSVEscaping:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert rows[0]["message"] == 'He said "Hello"'
 
@@ -275,7 +256,7 @@ class TestDownloadBasicCSVEscaping:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert rows[0]["message"] == "Line1\nLine2"
 
@@ -293,7 +274,7 @@ class TestDownloadBasicCSVEscaping:
         assert resp.status_code == 200
         content = resp.content.decode('utf-8')
         assert "Ошибка" in content
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert rows[0]["message"] == "Ошибка: данные не получены"
 
     def test_min_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
@@ -309,7 +290,7 @@ class TestDownloadBasicCSVEscaping:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert rows[0]["message"] == "x"
 
@@ -326,7 +307,7 @@ class TestDownloadBasicCSVEscaping:
             timeout=10
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1
         assert len(rows[0]["message"]) == 1024
 
@@ -352,7 +333,7 @@ class TestDownloadBasicScroll:
             timeout=60  # Увеличиваем таймаут для большого экспорта
         )
         assert resp.status_code == 200
-        rows = parse_csv_response(resp)
+        rows = parse_csv_from_response(resp)
         assert len(rows) == 1500
 
 

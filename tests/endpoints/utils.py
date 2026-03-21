@@ -2,9 +2,27 @@ import requests
 import pytest
 import time
 import os
-from typing import List, Optional
+import csv
+import io
+from typing import List, Optional, Dict
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 INDICES = ["telemetry", "basic", "event", "safety"]
+
+def parse_csv_from_response(response: requests.Response) -> List[Dict[str, str]]:
+    """
+    Парсит CSV из StreamingResponse.
+    Возвращает список словарей, где ключи — заголовки колонок.
+    """
+    content = response.content.decode("utf-8")
+    reader = csv.DictReader(io.StringIO(content))
+    return list(reader)
+
+
+def get_csv_headers(response: requests.Response) -> List[str]:
+    """Извлекает заголовки колонок из CSV ответа."""
+    content = response.content.decode("utf-8")
+    reader = csv.reader(io.StringIO(content))
+    return next(reader)
 
 def get_timestamp_ms() -> int:
     """Возвращает текущее время в миллисекундах (как в приложении)."""
