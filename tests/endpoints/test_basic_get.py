@@ -4,7 +4,7 @@ import requests
 from typing import Dict, Any, List
 
 from .conftest import BACKEND_URL, API_KEY
-from .utils import wait_for_elastic_sync, get_timestamp_ms
+from .utils import wait_for_elastic_sync, get_timestamp_ms, post_basic_logs, get_paginated_logs
 
 
 # ============================================================================
@@ -38,12 +38,7 @@ def write_basic_logs(count: int, base_timestamp: int = None,
             "message": f"{message_prefix}"
         })
 
-    resp = requests.post(
-        f"{BACKEND_URL}/log/basic",
-        json=logs_to_write,
-        headers=api_headers,
-        timeout=10
-    )
+    resp = post_basic_logs(BACKEND_URL, api_headers, logs_to_write)
     assert resp.status_code == 200, f"Failed to write logs: {resp.text}"
     return logs_to_write
 
@@ -52,17 +47,16 @@ def get_basic_logs(bearer_headers: Dict[str, str],
                    limit: int = None, 
                    page: int = None) -> requests.Response:
     """Выполняет GET-запрос к /log/basic с указанными параметрами."""
-    params = {}
-    if limit is not None:
-        params["limit"] = limit
-    if page is not None:
-        params["page"] = page
-    
-    return requests.get(
-        f"{BACKEND_URL}/log/basic",
-        headers=bearer_headers,
-        params=params,
-        timeout=10
+    limit_value = limit if limit is not None else 10
+    page_value = page if page is not None else 1
+    return get_paginated_logs(
+        BACKEND_URL,
+        "/log/basic",
+        bearer_headers,
+        limit=limit_value,
+        page=page_value,
+        timeout=10,
+
     )
 
 

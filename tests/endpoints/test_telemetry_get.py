@@ -6,57 +6,24 @@ import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, get_timestamp_ms
-
+from .utils import (
+    wait_for_elastic_sync,
+    get_timestamp_ms,
+    create_telemetry_payload,
+    post_telemetry_logs,
+    get_paginated_logs,
+)
 
 # =============================================================================
 # Вспомогательные функции
 # =============================================================================
-
-
-def generate_telemetry_payload(
-    timestamp: int,
-    drone: str = "delivery",
-    drone_id: int = 1,
-    latitude: float = 55.7558,
-    longitude: float = 37.6176,
-    battery: int | None = 85,
-    pitch: float | None = 5.5,
-    roll: float | None = -2.1,
-    course: float | None = 180.0,
-) -> Dict[str, Any]:
-    """Генерирует валидный объект телеметрии для отправки в бэкенд."""
-    payload = {
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp,
-        "drone": drone,
-        "drone_id": drone_id,
-        "latitude": latitude,
-        "longitude": longitude,
-    }
-    # Опциональные поля добавляем только если они не None
-    if battery is not None:
-        payload["battery"] = battery
-    if pitch is not None:
-        payload["pitch"] = pitch
-    if roll is not None:
-        payload["roll"] = roll
-    if course is not None:
-        payload["course"] = course
-    return payload
-
 
 def insert_telemetry_records(
     records: List[Dict[str, Any]],
     api_headers: Dict[str, str]
 ) -> requests.Response:
     """Вспомогательная функция для записи тестовых данных в телеметрию."""
-    return requests.post(
-        f"{BACKEND_URL}/log/telemetry",
-        json=records,
-        headers=api_headers,
-        timeout=10
-    )
+    return post_telemetry_logs(BACKEND_URL, api_headers, records)
 
 
 def fetch_telemetry(
@@ -65,12 +32,15 @@ def fetch_telemetry(
     page: int = 1
 ) -> requests.Response:
     """Вспомогательная функция для получения телеметрии."""
-    return requests.get(
-        f"{BACKEND_URL}/log/telemetry",
-        params={"limit": limit, "page": page},
-        headers=bearer_headers,
-        timeout=5
+    return get_paginated_logs(
+        BACKEND_URL,
+        "/log/telemetry",
+        bearer_headers,
+        limit=limit,
+        page=page,
+        timeout=5,
     )
+
 
 
 # =============================================================================
@@ -91,7 +61,7 @@ class TestTelemetryBasic:
     def test_TC_TEL_002_single_record(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-002: Получение одной записи телеметрии."""
         timestamp = get_timestamp_ms()
-        test_record = generate_telemetry_payload(
+        test_record = create_telemetry_payload(
             timestamp=timestamp,
             drone="inspector",
             drone_id=42,
@@ -125,11 +95,11 @@ class TestTelemetryBasic:
         base_ts = get_timestamp_ms()
         # Записываем записи в случайном порядке по времени
         records = [
-            generate_telemetry_payload(timestamp=base_ts + 1000, drone_id=1),
-            generate_telemetry_payload(timestamp=base_ts + 5000, drone_id=2),
-            generate_telemetry_payload(timestamp=base_ts + 3000, drone_id=3),
-            generate_telemetry_payload(timestamp=base_ts + 100, drone_id=4),
-            generate_telemetry_payload(timestamp=base_ts + 4000, drone_id=5),
+            create_telemetry_payload(timestamp=base_ts + 1000, drone_id=1),
+            create_telemetry_payload(timestamp=base_ts + 5000, drone_id=2),
+            create_telemetry_payload(timestamp=base_ts + 3000, drone_id=3),
+            create_telemetry_payload(timestamp=base_ts + 100, drone_id=4),
+            create_telemetry_payload(timestamp=base_ts + 4000, drone_id=5),
         ]
         
         insert_telemetry_records(records, api_headers)
@@ -153,7 +123,7 @@ class TestTelemetryPagination:
     def test_TC_TEL_004_pagination_page1(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-004: Пагинация: первая страница."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(15)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(15)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -171,7 +141,7 @@ class TestTelemetryPagination:
     def test_TC_TEL_005_pagination_page2(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-005: Пагинация: вторая страница."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(15)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(15)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -191,7 +161,7 @@ class TestTelemetryPagination:
     def test_TC_TEL_006_pagination_last_page_partial(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-006: Пагинация: последняя страница с неполным набором."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 13)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 13)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -205,7 +175,7 @@ class TestTelemetryPagination:
     def test_TC_TEL_007_pagination_out_of_range(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-007: Пагинация: запрос страницы за пределами данных."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 11)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 11)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -218,7 +188,7 @@ class TestTelemetryPagination:
     def test_TC_TEL_017_pagination_no_duplicates(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-017: Временна́я целостность: записи не теряются при пагинации."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 26)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 26)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -245,7 +215,7 @@ class TestTelemetryLimits:
     def test_TC_TEL_008_limit_min(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-008: Граничное значение limit=1."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 3)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 3)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -257,7 +227,7 @@ class TestTelemetryLimits:
     def test_TC_TEL_009_limit_max(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-009: Граничное значение limit=100."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*10, drone_id=i) for i in range(1, 101)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*10, drone_id=i) for i in range(1, 101)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -270,7 +240,7 @@ class TestTelemetryLimits:
     def test_TC_TEL_010_limit_greater_than_data(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-010: Значение limit больше количества записей."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 4)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 4)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -282,7 +252,7 @@ class TestTelemetryLimits:
     def test_TC_TEL_018_default_params(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-018: Дефолтные параметры запроса."""
         base_ts = get_timestamp_ms()
-        records = [generate_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 16)]
+        records = [create_telemetry_payload(timestamp=base_ts + i*100, drone_id=i) for i in range(1, 16)]
         
         insert_telemetry_records(records, api_headers)
         wait_for_elastic_sync()
@@ -337,7 +307,7 @@ class TestTelemetryDataValidation:
         base_ts = get_timestamp_ms()
         drone_types = ["delivery", "queen", "inspector", "agriculture"]
         records = [
-            generate_telemetry_payload(timestamp=base_ts + i*100, drone=drone, drone_id=i)
+            create_telemetry_payload(timestamp=base_ts + i*100, drone=drone, drone_id=i)
             for i, drone in enumerate(drone_types, start=1)
         ]
         
@@ -354,7 +324,7 @@ class TestTelemetryDataValidation:
     def test_TC_TEL_013_timestamp_format(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-013: Валидация формата timestamp в ответе."""
         base_ts = get_timestamp_ms()
-        record = generate_telemetry_payload(timestamp=base_ts)
+        record = create_telemetry_payload(timestamp=base_ts)
         
         insert_telemetry_records([record], api_headers)
         wait_for_elastic_sync()
@@ -381,7 +351,7 @@ class TestTelemetryDataValidation:
         
         base_ts = get_timestamp_ms()
         records = [
-            generate_telemetry_payload(
+            create_telemetry_payload(
                 timestamp=base_ts + i*100,
                 latitude=tc["lat"],
                 longitude=tc["lon"],
@@ -410,7 +380,7 @@ class TestTelemetryDataValidation:
         """TC-TEL-015: Большие значения drone_id (граница short)."""
         timestamp = get_timestamp_ms()
         # 32767 — максимальное значение для signed short
-        record = generate_telemetry_payload(timestamp=timestamp, drone_id=32767)
+        record = create_telemetry_payload(timestamp=timestamp, drone_id=32767)
         
         insert_telemetry_records([record], api_headers)
         wait_for_elastic_sync()
@@ -435,7 +405,7 @@ class TestTelemetryDataValidation:
                 "longitude": 1.0
             },
             # Все поля
-            generate_telemetry_payload(timestamp=base_ts + 100, drone_id=2)
+            create_telemetry_payload(timestamp=base_ts + 100, drone_id=2)
         ]
         
         insert_telemetry_records(records, api_headers)
@@ -459,7 +429,7 @@ class TestTelemetryDataValidation:
         ]
         
         records = [
-            generate_telemetry_payload(
+            create_telemetry_payload(
                 timestamp=base_ts + i*100,
                 pitch=tc["pitch"],
                 roll=tc["roll"],

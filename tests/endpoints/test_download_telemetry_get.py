@@ -8,7 +8,12 @@ import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, parse_csv_from_response, get_csv_headers
+from .utils import (
+    wait_for_elastic_sync,
+    parse_csv_from_response,
+    get_csv_headers,
+    post_telemetry_logs,
+)
 
 
 # =============================================================================
@@ -30,12 +35,7 @@ def get_filename_from_disposition(headers: Dict[str, str]) -> Optional[str]:
 
 def insert_telemetry_data(api_headers: Dict[str, str], records: List[Dict[str, Any]]) -> None:
     """Вставляет записи телеметрии через POST /log/telemetry."""
-    resp = requests.post(
-        f"{BACKEND_URL}/log/telemetry",
-        json=records,
-        headers=api_headers,
-        timeout=10
-    )
+    resp = post_telemetry_logs(BACKEND_URL, api_headers, records)
     assert resp.status_code in (200, 207), f"Failed to insert telemetry: {resp.text}"
 
 

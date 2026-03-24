@@ -11,6 +11,11 @@ from .utils import (
     get_timestamp_ms,
     parse_csv_from_response,
     insert_safety_log,
+    post_basic_logs,
+    create_telemetry_payload,
+    post_telemetry_logs,
+    create_event_payload,
+    post_event_logs,
 )
 
 # =============================================================================
@@ -46,7 +51,7 @@ def insert_basic_log(api_headers: Dict[str, str], message: str, timestamp: Optio
     if timestamp is None:
         timestamp = get_timestamp_ms()
     payload = [{"timestamp": timestamp, "message": message}]
-    resp = requests.post(f"{BACKEND_URL}/log/basic", json=payload, headers=api_headers, timeout=10)
+    resp = post_basic_logs(BACKEND_URL, api_headers, payload)
     assert resp.status_code == 200
     return {"index": "basic", "timestamp": timestamp, "message": message}
 
@@ -56,15 +61,14 @@ def insert_telemetry_log(api_headers: Dict[str, str], drone: str = "delivery", d
     """Вставляет запись в индекс telemetry."""
     if timestamp is None:
         timestamp = get_timestamp_ms()
-    payload = [{
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp,
-        "drone": drone,
-        "drone_id": drone_id,
-        "latitude": 55.0,
-        "longitude": 37.0
-    }]
-    resp = requests.post(f"{BACKEND_URL}/log/telemetry", json=payload, headers=api_headers, timeout=10)
+    payload = [create_telemetry_payload(
+        timestamp=timestamp,
+        drone=drone,
+        drone_id=drone_id,
+        latitude=55.0,
+        longitude=37.0,
+    )]
+    resp = post_telemetry_logs(BACKEND_URL, api_headers, payload)
     assert resp.status_code == 200
     return {"index": "telemetry", "timestamp": timestamp, "drone": drone, "drone_id": drone_id}
 
@@ -74,16 +78,15 @@ def insert_event_log(api_headers: Dict[str, str], service: str = "GCS", severity
     """Вставляет запись в индекс event."""
     if timestamp is None:
         timestamp = get_timestamp_ms()
-    payload = [{
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp,
-        "event_type": "event",
-        "service": service,
-        "service_id": 1,
-        "severity": severity,
-        "message": message
-    }]
-    resp = requests.post(f"{BACKEND_URL}/log/event", json=payload, headers=api_headers, timeout=10)
+    payload = [create_event_payload(
+        timestamp=timestamp,
+        service=service,
+        service_id=1,
+        message=message,
+        severity=severity,
+        event_type="event",
+    )]
+    resp = post_event_logs(BACKEND_URL, api_headers, payload)
     assert resp.status_code == 200
     return {"index": "event", "timestamp": timestamp, "service": service, "severity": severity, "message": message}
 
