@@ -57,6 +57,67 @@ def post_event_logs(
     )
 
 
+def post_basic_logs(
+    backend_url: str,
+    api_headers: Dict[str, str],
+    logs: List[Dict[str, Any]],
+    timeout: int = 10,
+) -> requests.Response:
+    """Отправляет пакет basic-логов через POST /log/basic."""
+    return requests.post(
+        f"{backend_url}/log/basic",
+        json=logs,
+        headers=api_headers,
+        timeout=timeout,
+    )
+
+
+def create_telemetry_payload(
+    timestamp: int,
+    drone: str = "delivery",
+    drone_id: int = 1,
+    latitude: float = 55.7558,
+    longitude: float = 37.6176,
+    battery: int | None = 85,
+    pitch: float | None = 5.5,
+    roll: float | None = -2.1,
+    course: float | None = 180.0,
+) -> Dict[str, Any]:
+    """Создаёт валидный payload для POST /log/telemetry."""
+    payload = {
+        "apiVersion": "1.0.0",
+        "timestamp": timestamp,
+        "drone": drone,
+        "drone_id": drone_id,
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+    if battery is not None:
+        payload["battery"] = battery
+    if pitch is not None:
+        payload["pitch"] = pitch
+    if roll is not None:
+        payload["roll"] = roll
+    if course is not None:
+        payload["course"] = course
+    return payload
+
+
+def post_telemetry_logs(
+    backend_url: str,
+    api_headers: Dict[str, str],
+    telemetry_records: List[Dict[str, Any]],
+    timeout: int = 10,
+) -> requests.Response:
+    """Отправляет пакет telemetry-логов через POST /log/telemetry."""
+    return requests.post(
+        f"{backend_url}/log/telemetry",
+        json=telemetry_records,
+        headers=api_headers,
+        timeout=timeout,
+    )
+
+
 def get_paginated_logs(
     backend_url: str,
     endpoint: str,

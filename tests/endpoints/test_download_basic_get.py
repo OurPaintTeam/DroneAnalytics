@@ -2,23 +2,15 @@
 from typing import List, Dict, Any, Optional
 
 import pytest
-import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, parse_csv_from_response, get_csv_headers
-
-
-# --- Вспомогательные функции ---
-
-def insert_basic_logs(api_headers: Dict[str, str], logs: List[Dict[str, Any]]) -> None:
-    """Вспомогательная функция для записи логов через POST /log/basic."""
-    resp = requests.post(
-        f"{BACKEND_URL}/log/basic",
-        json=logs,
-        headers=api_headers,
-        timeout=10
-    )
-    assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
+from .utils import (
+    wait_for_elastic_sync,
+    parse_csv_from_response,
+    get_csv_headers,
+    post_basic_logs,
+)
+import requests
 
 
 # --- Тест-кейсы ---
@@ -48,7 +40,8 @@ class TestDownloadBasicContent:
         """TC-BASIC-02: Один документ — корректная строка."""
         timestamp = 1700000000000
         logs = [{"timestamp": timestamp, "message": "Test"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -66,7 +59,8 @@ class TestDownloadBasicContent:
         """TC-BASIC-03: Множество записей — полный экспорт."""
         base_ts = 1700000000000
         logs = [{"timestamp": base_ts + i * 1000, "message": f"Msg {i}"} for i in range(5)]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -82,7 +76,8 @@ class TestDownloadBasicContent:
         """TC-BASIC-08: Сортировка: timestamp desc."""
         timestamps = [1000, 3000, 2000]
         logs = [{"timestamp": ts, "message": f"Msg {ts}"} for ts in timestamps]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -102,7 +97,8 @@ class TestDownloadBasicFiltering:
     def test_filter_from_ts_inclusive(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-04: Фильтр from_ts — включительно."""
         logs = [{"timestamp": ts, "message": f"Msg {ts}"} for ts in [1000, 2000, 3000]]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -120,7 +116,8 @@ class TestDownloadBasicFiltering:
     def test_filter_to_ts_inclusive(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-05: Фильтр to_ts — включительно."""
         logs = [{"timestamp": ts, "message": f"Msg {ts}"} for ts in [1000, 2000, 3000]]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -138,7 +135,8 @@ class TestDownloadBasicFiltering:
     def test_filter_range_both(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-06: Фильтр диапазона [from, to]."""
         logs = [{"timestamp": ts, "message": f"Msg {ts}"} for ts in [1000, 2000, 3000, 4000]]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -157,7 +155,8 @@ class TestDownloadBasicFiltering:
     def test_filter_no_matches(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-07: Диапазон без совпадений."""
         logs = [{"timestamp": ts, "message": f"Msg {ts}"} for ts in [1000, 2000, 3000]]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -178,7 +177,8 @@ class TestDownloadBasicFiltering:
             {"timestamp": target_ts, "message": "Exact"},
             {"timestamp": target_ts + 1000, "message": "After"},
         ]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -195,7 +195,8 @@ class TestDownloadBasicFiltering:
     def test_filter_future_range(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-24: Фильтр с несуществующим future-диапазоном."""
         logs = [{"timestamp": 1700000000000, "message": "Old data"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -215,7 +216,8 @@ class TestDownloadBasicCSVEscaping:
     def test_comma_in_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-09: Экранирование запятой в сообщении."""
         logs = [{"timestamp": 1000, "message": "Error, code 404"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -231,7 +233,8 @@ class TestDownloadBasicCSVEscaping:
     def test_quotes_in_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-10: Экранирование кавычек в сообщении."""
         logs = [{"timestamp": 1000, "message": 'He said "Hello"'}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -247,7 +250,8 @@ class TestDownloadBasicCSVEscaping:
     def test_newline_in_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-11: Перенос строки в сообщении."""
         logs = [{"timestamp": 1000, "message": "Line1\nLine2"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -263,7 +267,8 @@ class TestDownloadBasicCSVEscaping:
     def test_unicode_cyrillic(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-12: Unicode и кириллица."""
         logs = [{"timestamp": 1000, "message": "Ошибка: данные не получены"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -281,7 +286,8 @@ class TestDownloadBasicCSVEscaping:
         """TC-BASIC-13: Минимальная длина сообщения (1 символ)."""
         # Примечание: Pydantic не пропустит null или пустую строку (min_length=1)
         logs = [{"timestamp": 123, "message": "x"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -298,7 +304,8 @@ class TestDownloadBasicCSVEscaping:
         """TC-BASIC-23: Очень длинное сообщение (1024 символа)."""
         long_msg = "x" * 1024
         logs = [{"timestamp": 1000, "message": long_msg}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -323,7 +330,8 @@ class TestDownloadBasicScroll:
         # Отправляем пачками по 100 (максимум в API)
         for i in range(0, 1500, 100):
             batch = logs[i:i+100]
-            insert_basic_logs(api_headers, batch)
+            resp = post_basic_logs(BACKEND_URL, api_headers, batch)
+            assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         
         wait_for_elastic_sync(5.0)  # Ждём дольше для большого объёма
 
@@ -343,7 +351,8 @@ class TestDownloadBasicHeaders:
     def test_content_type(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-20: Content-Type ответа."""
         logs = [{"timestamp": 1000, "message": "Test"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -357,7 +366,8 @@ class TestDownloadBasicHeaders:
     def test_filename_no_filters(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-16: Имя файла: без фильтров."""
         logs = [{"timestamp": 1000, "message": "Test"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -372,7 +382,8 @@ class TestDownloadBasicHeaders:
     def test_filename_only_from_ts(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-17: Имя файла: только from_ts."""
         logs = [{"timestamp": 1000, "message": "Test"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -388,7 +399,8 @@ class TestDownloadBasicHeaders:
     def test_filename_only_to_ts(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-18: Имя файла: только to_ts."""
         logs = [{"timestamp": 1000, "message": "Test"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
@@ -404,7 +416,8 @@ class TestDownloadBasicHeaders:
     def test_filename_both_filters(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-BASIC-19: Имя файла: оба фильтра."""
         logs = [{"timestamp": 1000, "message": "Test"}]
-        insert_basic_logs(api_headers, logs)
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
         wait_for_elastic_sync()
 
         resp = requests.get(
