@@ -12,73 +12,13 @@ import requests
 from typing import Dict, Any, List
 
 from .conftest import BACKEND_URL
-from .utils import get_timestamp_ms, wait_for_elastic_sync
-
-
-# ============================================================================
-# Вспомогательные функции для генерации тестовых данных
-# ============================================================================
-
-def create_safety_event(
-    service: str = "dronePort",
-    service_id: int = 2,
-    severity: str | None = "warning",
-    message: str = "Test safety event",
-    timestamp: int | None = None
-) -> Dict[str, Any]:
-    """Создаёт валидный payload для safety_event."""
-    return {
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp or get_timestamp_ms(),
-        "event_type": "safety_event",
-        "service": service,
-        "service_id": service_id,
-        "severity": severity,
-        "message": message
-    }
-
-
-def create_regular_event(
-    service: str = "GCS",
-    service_id: int = 1,
-    severity: str | None = "info",
-    message: str = "Test regular event",
-    timestamp: int | None = None
-) -> Dict[str, Any]:
-    """Создаёт валидный payload для обычного event (не safety)."""
-    return {
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp or get_timestamp_ms(),
-        "event_type": "event",
-        "service": service,
-        "service_id": service_id,
-        "severity": severity,
-        "message": message
-    }
-
-
-def post_events(payload: List[Dict], api_headers: Dict[str, str]) -> requests.Response:
-    """Отправляет пакет событий через POST /log/event."""
-    return requests.post(
-        f"{BACKEND_URL}/log/event",
-        json=payload,
-        headers=api_headers,
-        timeout=10
-    )
-
-
-def get_safety_logs(
-    bearer_headers: Dict[str, str],
-    limit: int = 10,
-    page: int = 1
-) -> requests.Response:
-    """Выполняет запрос к GET /log/safety с параметрами."""
-    return requests.get(
-        f"{BACKEND_URL}/log/safety",
-        params={"limit": limit, "page": page},
-        headers=bearer_headers,
-        timeout=5
-    )
+from .utils import (
+    get_timestamp_ms,
+    wait_for_elastic_sync,
+    create_event_payload,
+    post_event_logs,
+    get_paginated_logs,
+)
 
 
 # ============================================================================
@@ -95,7 +35,7 @@ class TestGetSafetyLogs:
     def test_get_safety_empty_index(self, bearer_headers: Dict[str, str]):
         """TC-SAFETY-001: Получение логов из пустого индекса."""
         wait_for_elastic_sync()
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         
         assert resp.status_code == 200
         assert resp.json() == []
@@ -103,7 +43,7 @@ class TestGetSafetyLogs:
     def test_get_safety_single_event(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-SAFETY-002: Получение одного записанного safety-события."""
         timestamp = get_timestamp_ms()
-        event = create_safety_event(
+        event = create_event_payload(event_type="safety_event", 
             service="insurance",
             service_id=42,
             severity="critical",
@@ -112,12 +52,12 @@ class TestGetSafetyLogs:
         )
         
         # Записываем событие
-        post_resp = post_events([event], api_headers)
+        post_resp = post_event_logs(BACKEND_URL, api_headers, [event])
         assert post_resp.status_code == 200
         wait_for_elastic_sync()
         
         # Читаем
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -141,23 +81,23 @@ class TestGetSafetyLogs:
         
         # Отправляем смешанный пакет: обычное событие + safety
         payload = [
-            create_regular_event(
+            create_event_payload(event_type="event", 
                 service="GCS",
                 message="Regular event - should NOT appear",
                 timestamp=timestamp
             ),
-            create_safety_event(
+            create_event_payload(event_type="safety_event", 
                 service="regulator",
                 message="Safety event - SHOULD appear",
                 timestamp=timestamp + 1
             )
         ]
         
-        post_resp = post_events(payload, api_headers)
+        post_resp = post_event_logs(BACKEND_URL, api_headers, payload)
         assert post_resp.status_code == 200
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -172,13 +112,13 @@ class TestGetSafetyLogs:
         
         # Отправляем safety-события: одно от infopanel (аудит), одно от другого сервиса
         payload = [
-            create_safety_event(
+            create_event_payload(event_type="safety_event", 
                 service="infopanel",  # AUDIT_SERVICE - должен быть исключён
                 service_id=1,
                 message="Internal audit safety log - should NOT appear",
                 timestamp=timestamp
             ),
-            create_safety_event(
+            create_event_payload(event_type="safety_event", 
                 service="dronePort",  # Обычный сервис - должен быть в ответе
                 service_id=2,
                 severity="warning",
@@ -187,11 +127,11 @@ class TestGetSafetyLogs:
             )
         ]
         
-        post_resp = post_events(payload, api_headers)
+        post_resp = post_event_logs(BACKEND_URL, api_headers, payload)
         assert post_resp.status_code == 200
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -212,16 +152,16 @@ class TestGetSafetyLogs:
         
         # Записываем события в "перемешанном" порядке по времени
         payload = [
-            create_safety_event(message="Old event", timestamp=base_ts),
-            create_safety_event(message="Newest event", timestamp=base_ts + 2000),
-            create_safety_event(message="Middle event", timestamp=base_ts + 1000),
+            create_event_payload(event_type="safety_event", message="Old event", timestamp=base_ts),
+            create_event_payload(event_type="safety_event", message="Newest event", timestamp=base_ts + 2000),
+            create_event_payload(event_type="safety_event", message="Middle event", timestamp=base_ts + 1000),
         ]
         
-        post_resp = post_events(payload, api_headers)
+        post_resp = post_event_logs(BACKEND_URL, api_headers, payload)
         assert post_resp.status_code == 200
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers, limit=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=10)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -245,14 +185,14 @@ class TestGetSafetyLogs:
         
         # Записываем 5 событий
         payload = [
-            create_safety_event(message=f"Event {i}", timestamp=base_ts + i * 100)
+            create_event_payload(event_type="safety_event", message=f"Event {i}", timestamp=base_ts + i * 100)
             for i in range(5)
         ]
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Запрашиваем первую страницу: 2 самых новых
-        resp = get_safety_logs(bearer_headers, limit=2, page=1)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=2, page=1)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -266,14 +206,14 @@ class TestGetSafetyLogs:
         base_ts = get_timestamp_ms()
         
         payload = [
-            create_safety_event(message=f"Event {i}", timestamp=base_ts + i * 100)
+            create_event_payload(event_type="safety_event", message=f"Event {i}", timestamp=base_ts + i * 100)
             for i in range(5)
         ]
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Вторая страница: следующие 2 события
-        resp = get_safety_logs(bearer_headers, limit=2, page=2)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=2, page=2)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -286,14 +226,14 @@ class TestGetSafetyLogs:
         base_ts = get_timestamp_ms()
         
         payload = [
-            create_safety_event(message=f"Event {i}", timestamp=base_ts + i * 100)
+            create_event_payload(event_type="safety_event", message=f"Event {i}", timestamp=base_ts + i * 100)
             for i in range(5)
         ]
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Третья страница: останется 1 событие
-        resp = get_safety_logs(bearer_headers, limit=2, page=3)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=2, page=3)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -305,12 +245,12 @@ class TestGetSafetyLogs:
         base_ts = get_timestamp_ms()
         
         # Записываем 3 события
-        payload = [create_safety_event(timestamp=base_ts + i) for i in range(3)]
-        post_events(payload, api_headers)
+        payload = [create_event_payload(event_type="safety_event", timestamp=base_ts + i) for i in range(3)]
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Запрашиваем несуществующую страницу
-        resp = get_safety_logs(bearer_headers, limit=10, page=999)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=10, page=999)
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -323,13 +263,13 @@ class TestGetSafetyLogs:
         base_ts = get_timestamp_ms()
         
         payload = [
-            create_safety_event(message="First", timestamp=base_ts),
-            create_safety_event(message="Second", timestamp=base_ts + 100)
+            create_event_payload(event_type="safety_event", message="First", timestamp=base_ts),
+            create_event_payload(event_type="safety_event", message="Second", timestamp=base_ts + 100)
         ]
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers, limit=1)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=1)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -342,14 +282,14 @@ class TestGetSafetyLogs:
         
         # Записываем 105 событий
         payload = [
-            create_safety_event(timestamp=base_ts + i)
+            create_event_payload(event_type="safety_event", timestamp=base_ts + i)
             for i in range(105)
         ]
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Запрашиваем максимум (100)
-        resp = get_safety_logs(bearer_headers, limit=100)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=100)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -363,8 +303,8 @@ class TestGetSafetyLogs:
         base_ts = get_timestamp_ms()
         
         # Записываем 15 событий
-        payload = [create_safety_event(timestamp=base_ts + i) for i in range(15)]
-        post_events(payload, api_headers)
+        payload = [create_event_payload(event_type="safety_event", timestamp=base_ts + i) for i in range(15)]
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Запрос без параметров
@@ -382,8 +322,8 @@ class TestGetSafetyLogs:
         """TC-SAFETY-012: Первая страница по умолчанию (page=1)."""
         base_ts = get_timestamp_ms()
         
-        payload = [create_safety_event(timestamp=base_ts + i) for i in range(25)]
-        post_events(payload, api_headers)
+        payload = [create_event_payload(event_type="safety_event", timestamp=base_ts + i) for i in range(25)]
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
         # Запрос с limit, но без page: должен применить page=1
@@ -407,7 +347,7 @@ class TestGetSafetyLogs:
         """TC-SAFETY-013: Проверка целостности полей ответа."""
         timestamp = get_timestamp_ms()
         
-        event = create_safety_event(
+        event = create_event_payload(event_type="safety_event", 
             service="agriculture",
             service_id=99,
             severity="error",
@@ -415,10 +355,10 @@ class TestGetSafetyLogs:
             timestamp=timestamp
         )
         
-        post_events([event], api_headers)
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -460,10 +400,10 @@ class TestGetSafetyLogs:
             "message": "Event without severity"
         }
         
-        post_events([event], api_headers)
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -476,7 +416,7 @@ class TestGetSafetyLogs:
         timestamp = get_timestamp_ms()
         
         # Сообщение максимальной длины (1024 символа) и минимальный service_id
-        event = create_safety_event(
+        event = create_event_payload(event_type="safety_event", 
             service="registry",
             service_id=1,  # Минимальное значение по схеме
             severity="emergency",  # Максимальный уровень
@@ -484,10 +424,10 @@ class TestGetSafetyLogs:
             timestamp=timestamp
         )
         
-        post_events([event], api_headers)
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -507,14 +447,14 @@ class TestGetSafetyLogs:
         
         severities = ["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]
         payload = [
-            create_safety_event(severity=sev, message=f"Level: {sev}", timestamp=base_ts + idx)
+            create_event_payload(event_type="safety_event", severity=sev, message=f"Level: {sev}", timestamp=base_ts + idx)
             for idx, sev in enumerate(severities)
         ]
         
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers, limit=20)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers, limit=20)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -532,14 +472,14 @@ class TestGetSafetyLogs:
         
         # Три события от одного сервиса с одинаковым service_id
         payload = [
-            create_safety_event(service="regulator", service_id=5, message=f"Msg {i}", timestamp=base_ts + i)
+            create_event_payload(event_type="safety_event", service="regulator", service_id=5, message=f"Msg {i}", timestamp=base_ts + i)
             for i in range(3)
         ]
         
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -556,14 +496,14 @@ class TestGetSafetyLogs:
         
         # Два события с идентичным timestamp
         payload = [
-            create_safety_event(service="GCS", message="First same-ts", timestamp=timestamp),
-            create_safety_event(service="aggregator", message="Second same-ts", timestamp=timestamp)
+            create_event_payload(event_type="safety_event", service="GCS", message="First same-ts", timestamp=timestamp),
+            create_event_payload(event_type="safety_event", service="aggregator", message="Second same-ts", timestamp=timestamp)
         ]
         
-        post_events(payload, api_headers)
+        post_event_logs(BACKEND_URL, api_headers, payload)
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         
@@ -582,11 +522,11 @@ class TestGetSafetyLogs:
         # Используем конкретное известное значение в миллисекундах
         fixed_timestamp = 1700000000123  # Пример epoch ms
         
-        event = create_safety_event(timestamp=fixed_timestamp)
-        post_events([event], api_headers)
+        event = create_event_payload(event_type="safety_event", timestamp=fixed_timestamp)
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_safety_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/safety", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         

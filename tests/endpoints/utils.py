@@ -4,9 +4,102 @@ import time
 import os
 import csv
 import io
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 INDICES = ["telemetry", "basic", "event", "safety"]
+
+def filter_rows_by_match(
+    rows: List[Dict[str, str]],
+    value: str,
+    field: str = "message",
+    startswith: bool = False,
+) -> List[Dict[str, str]]:
+    """Фильтрует CSV-строки по значению в указанном поле."""
+    if startswith:
+        return [row for row in rows if row.get(field, "").startswith(value)]
+    return [row for row in rows if value in row.get(field, "")]
+
+
+def create_event_payload(
+    timestamp: Optional[int] = None,
+    service: str = "GCS",
+    service_id: int = 1,
+    message: str = "Test event",
+    severity: str | None = None,
+    event_type: str = "event",
+) -> Dict[str, Any]:
+    """Создаёт валидный payload для POST /log/event."""
+    payload = {
+        "apiVersion": "1.0.0",
+        "timestamp": timestamp if timestamp is not None else get_timestamp_ms(),
+        "event_type": event_type,
+        "service": service,
+        "service_id": service_id,
+        "message": message,
+    }
+    if severity is not None:
+        payload["severity"] = severity
+    return payload
+
+
+def post_event_logs(
+    backend_url: str,
+    api_headers: Dict[str, str],
+    events: List[Dict[str, Any]],
+    timeout: int = 10,
+) -> requests.Response:
+    """Отправляет пакет событий через POST /log/event."""
+    return requests.post(
+        f"{backend_url}/log/event",
+        json=events,
+        headers=api_headers,
+        timeout=timeout,
+    )
+
+
+def get_paginated_logs(
+    backend_url: str,
+    endpoint: str,
+    bearer_headers: Dict[str, str],
+    limit: int = 10,
+    page: int = 1,
+    timeout: int = 10,
+) -> requests.Response:
+    """Запрашивает логи с параметрами пагинации."""
+    return requests.get(
+        f"{backend_url}{endpoint}",
+        params={"limit": limit, "page": page},
+        headers=bearer_headers,
+        timeout=timeout,
+    )
+
+
+def insert_safety_log(
+    backend_url: str,
+    api_headers: Dict[str, str],
+    timestamp: Optional[int] = None,
+    service: str = "dronePort",
+    service_id: int = 2,
+    severity: Optional[str] = "warning",
+    message: str = "Test safety message",
+    timeout: int = 10,
+) -> Dict[str, Any]:
+    """Создаёт safety event через POST /log/event и возвращает отправленный документ."""
+    if timestamp is None:
+        timestamp = get_timestamp_ms()
+
+    payload = [{
+        "apiVersion": "1.0.0",
+        "timestamp": timestamp,
+        "event_type": "safety_event",
+        "service": service,
+        "service_id": service_id,
+        "severity": severity,
+        "message": message,
+    }]
+    resp = post_event_logs(backend_url, api_headers, payload, timeout=timeout)
+    assert resp.status_code in (200, 207), f"Failed to insert safety log: {resp.text}"
+    return payload[0]
 
 def parse_csv_from_response(response: requests.Response) -> List[Dict[str, str]]:
     """

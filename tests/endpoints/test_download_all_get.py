@@ -5,7 +5,13 @@ import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, get_csv_headers, get_timestamp_ms, parse_csv_from_response
+from .utils import (
+    wait_for_elastic_sync,
+    get_csv_headers,
+    get_timestamp_ms,
+    parse_csv_from_response,
+    insert_safety_log,
+)
 
 # =============================================================================
 # Константы
@@ -80,25 +86,6 @@ def insert_event_log(api_headers: Dict[str, str], service: str = "GCS", severity
     resp = requests.post(f"{BACKEND_URL}/log/event", json=payload, headers=api_headers, timeout=10)
     assert resp.status_code == 200
     return {"index": "event", "timestamp": timestamp, "service": service, "severity": severity, "message": message}
-
-
-def insert_safety_log(api_headers: Dict[str, str], service: str = "dronePort", severity: str = "warning",
-                      message: str = "Safety event", timestamp: Optional[int] = None) -> Dict[str, Any]:
-    """Вставляет запись в индекс safety."""
-    if timestamp is None:
-        timestamp = get_timestamp_ms()
-    payload = [{
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp,
-        "event_type": "safety_event",
-        "service": service,
-        "service_id": 1,
-        "severity": severity,
-        "message": message
-    }]
-    resp = requests.post(f"{BACKEND_URL}/log/event", json=payload, headers=api_headers, timeout=10)
-    assert resp.status_code == 200
-    return {"index": "safety", "timestamp": timestamp, "service": service, "severity": severity, "message": message}
 
 
 # =============================================================================
@@ -179,8 +166,8 @@ class TestDownloadAllBasic:
 
     def test_only_safety_logs(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """Тест #5: Только safety логи."""
-        insert_safety_log(api_headers, service="dronePort", severity="warning")
-        insert_safety_log(api_headers, service="insurance", severity="critical")
+        insert_safety_log(BACKEND_URL, api_headers, service="dronePort", severity="warning")
+        insert_safety_log(BACKEND_URL, api_headers, service="insurance", severity="critical")
         wait_for_elastic_sync()
         
         resp = requests.get(f"{BACKEND_URL}/log/download/all", headers=bearer_headers, timeout=10)
@@ -201,8 +188,8 @@ class TestDownloadAllBasic:
         insert_telemetry_log(api_headers, drone="agriculture", drone_id=3)
         insert_event_log(api_headers, service="GCS", severity="info")
         insert_event_log(api_headers, service="operator", severity="error")
-        insert_safety_log(api_headers, service="dronePort", severity="warning")
-        insert_safety_log(api_headers, service="regulator", severity="alert")
+        insert_safety_log(BACKEND_URL, api_headers, service="dronePort", severity="warning")
+        insert_safety_log(BACKEND_URL, api_headers, service="regulator", severity="alert")
         wait_for_elastic_sync()
         
         resp = requests.get(f"{BACKEND_URL}/log/download/all", headers=bearer_headers, timeout=10)
@@ -338,7 +325,7 @@ class TestDownloadAllTimeFilter:
         """Тест #12: Диапазон без данных."""
         base_ts = 1000000000000
         test_message = "TEST_NO_MATCHES_here"
-        insert_safety_log(api_headers=api_headers, timestamp=base_ts, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts, message=test_message)
         wait_for_elastic_sync()
         
         # Запрашиваем диапазон, где нет документов
@@ -523,7 +510,7 @@ class TestDownloadAllSorting:
         insert_basic_log(api_headers, "Basic", timestamp=base_ts + 3000)
         insert_telemetry_log(api_headers, drone="delivery", timestamp=base_ts + 1000)
         insert_event_log(api_headers, service="GCS", timestamp=base_ts + 5000)
-        insert_safety_log(api_headers, service="dronePort", timestamp=base_ts + 2000)
+        insert_safety_log(BACKEND_URL, api_headers, service="dronePort", timestamp=base_ts + 2000)
         insert_basic_log(api_headers, "Basic2", timestamp=base_ts + 4000)
         wait_for_elastic_sync()
         
@@ -627,7 +614,7 @@ class TestDownloadAllIndexValidation:
     def test_safety_index_fields(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """Тест #29: Поле index для safety."""
         ts = get_timestamp_ms()
-        insert_safety_log(api_headers, service="dronePort", severity="warning", timestamp=ts)
+        insert_safety_log(BACKEND_URL, api_headers, service="dronePort", severity="warning", timestamp=ts)
         wait_for_elastic_sync()
         
         resp = requests.get(f"{BACKEND_URL}/log/download/all", headers=bearer_headers, timeout=10)
@@ -644,7 +631,7 @@ class TestDownloadAllIndexValidation:
         insert_basic_log(api_headers, "Basic", timestamp=ts)
         insert_telemetry_log(api_headers, drone="delivery", drone_id=1, timestamp=ts + 1)
         insert_event_log(api_headers, service="GCS", severity="info", timestamp=ts + 2)
-        insert_safety_log(api_headers, service="dronePort", severity="warning", timestamp=ts + 3)
+        insert_safety_log(BACKEND_URL, api_headers, service="dronePort", severity="warning", timestamp=ts + 3)
         wait_for_elastic_sync()
         
         resp = requests.get(f"{BACKEND_URL}/log/download/all", headers=bearer_headers, timeout=10)

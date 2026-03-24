@@ -1,65 +1,16 @@
 """Интеграционные тесты для GET /log/event."""
 import pytest
 import requests
-import time
 from typing import Dict, Any, List
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, get_timestamp_ms
-
-
-# ============================================================================
-# Вспомогательные функции для генерации тестовых данных
-# ============================================================================
-
-def create_event_payload(
-    timestamp: int,
-    service: str,
-    service_id: int,
-    message: str,
-    severity: str | None = None,
-    event_type: str = "event"
-) -> Dict[str, Any]:
-    """Создаёт валидный payload для POST /log/event."""
-    payload = {
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp,
-        "event_type": event_type,
-        "service": service,
-        "service_id": service_id,
-        "message": message,
-    }
-    if severity is not None:
-        payload["severity"] = severity
-    return payload
-
-
-def post_test_events(
-    api_headers: Dict[str, str],
-    events: List[Dict[str, Any]]
-) -> requests.Response:
-    """Отправляет пакет событий через POST /log/event."""
-    return requests.post(
-        f"{BACKEND_URL}/log/event",
-        json=events,
-        headers=api_headers,
-        timeout=10
-    )
-
-
-def get_event_logs(
-    bearer_headers: Dict[str, str],
-    limit: int = 10,
-    page: int = 1
-) -> requests.Response:
-    """Запрашивает логи событий с указанными параметрами пагинации."""
-    return requests.get(
-        f"{BACKEND_URL}/log/event",
-        params={"limit": limit, "page": page},
-        headers=bearer_headers,
-        timeout=10
-    )
-
+from .utils import (
+    wait_for_elastic_sync,
+    get_timestamp_ms,
+    create_event_payload,
+    post_event_logs,
+    get_paginated_logs,
+)
 
 # ============================================================================
 # Тест-кейсы: базовая функциональность
@@ -71,7 +22,7 @@ class TestGetEventBasic:
     def test_empty_index_returns_empty_list(self, bearer_headers: Dict[str, str]):
         """TC_EVENT_001: Получение событий из пустого индекса."""
         wait_for_elastic_sync()
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -79,10 +30,10 @@ class TestGetEventBasic:
         """TC_EVENT_002: Получение одного события."""
         ts = get_timestamp_ms()
         event = create_event_payload(ts, "GCS", 1, "Test message", "info")
-        post_test_events(api_headers, [event])
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         assert resp.status_code == 200
         logs = resp.json()
         assert len(logs) == 1
@@ -96,10 +47,10 @@ class TestGetEventBasic:
         """TC_EVENT_014: Структура ответа — все обязательные поля."""
         ts = get_timestamp_ms()
         event = create_event_payload(ts, "aggregator", 42, "Required fields test")
-        post_test_events(api_headers, [event])
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         assert resp.status_code == 200
         log = resp.json()[0]
         
@@ -119,10 +70,10 @@ class TestGetEventBasic:
         """TC_EVENT_015: Типы данных в ответе."""
         ts = get_timestamp_ms()
         event = create_event_payload(ts, "dronePort", 100, "Type test", "warning")
-        post_test_events(api_headers, [event])
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         log = resp.json()[0]
         
         assert isinstance(log["timestamp"], int)
@@ -148,10 +99,10 @@ class TestGetEventSorting:
             create_event_payload(base_ts + 1000, "aggregator", 2, "First"),
             create_event_payload(base_ts + 2000, "dronePort", 3, "Second"),
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10)
         logs = resp.json()
         timestamps = [log["timestamp"] for log in logs]
         
@@ -175,10 +126,10 @@ class TestGetEventPagination:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1}")
             for i in range(25)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10, page=1)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10, page=1)
         assert resp.status_code == 200
         logs = resp.json()
         assert len(logs) == 10
@@ -193,10 +144,10 @@ class TestGetEventPagination:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1}")
             for i in range(25)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10, page=2)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10, page=2)
         logs = resp.json()
         assert len(logs) == 10
         # События 11-20 по новизне
@@ -210,10 +161,10 @@ class TestGetEventPagination:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1}")
             for i in range(25)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10, page=3)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10, page=3)
         logs = resp.json()
         assert len(logs) == 5
         assert logs[0]["message"] == "Event 5"
@@ -226,10 +177,10 @@ class TestGetEventPagination:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1}")
             for i in range(5)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10, page=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10, page=10)
         assert resp.status_code == 200
         assert resp.json() == []
 # ============================================================================
@@ -248,10 +199,10 @@ class TestGetEventFiltering:
             create_event_payload(base_ts + 1000, "infopanel", 1, "Audit log 2"),
             create_event_payload(base_ts + 4000, "aggregator", 3, "User log 2"),
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10)
         logs = resp.json()
         
         # Должны быть только 2 пользовательских лога
@@ -273,10 +224,10 @@ class TestGetEventFiltering:
             create_event_payload(base_ts + 1000, "insurance", 2, "Safety event", "critical", "safety_event"),
             create_event_payload(base_ts + 3000, "regulator", 3, "Another regular", "warning", "event"),
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10)
         logs = resp.json()
         
         # Должны быть только 2 обычных события
@@ -335,10 +286,10 @@ class TestGetEventValidation:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1}")
             for i in range(5)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=1, page=1)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=1, page=1)
         logs = resp.json()
         assert len(logs) == 1
         assert logs[0]["message"] == "Event 5"  # самый новый
@@ -350,10 +301,10 @@ class TestGetEventValidation:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1:03d}")
             for i in range(150)  # больше 100
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=100, page=1)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=100, page=1)
         logs = resp.json()
         assert len(logs) == 100  # не больше 100, даже если в базе больше
         assert logs[0]["message"] == "Event 150"
@@ -376,10 +327,10 @@ class TestGetEventData:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Severity {sev}", sev)
             for i, sev in enumerate(severities)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=20)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=20)
         logs = resp.json()
         
         returned_severities = [log.get("severity") for log in logs]
@@ -397,10 +348,10 @@ class TestGetEventData:
             create_event_payload(base_ts + i*1000, svc, i+1, f"From {svc}")
             for i, svc in enumerate(services)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=20)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=20)
         logs = resp.json()
         
         returned_services = {log["service"] for log in logs}
@@ -413,10 +364,10 @@ class TestGetEventData:
         base_ts = get_timestamp_ms()
         long_message = "x" * 1000  # максимум по валидации
         event = create_event_payload(base_ts, "GCS", 1, long_message, "info")
-        post_test_events(api_headers, [event])
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         log = resp.json()[0]
         
         assert log["message"] == long_message
@@ -431,10 +382,10 @@ class TestGetEventData:
             create_event_payload(base_ts + 1000, "GCS", 1, "Min service_id"),
             create_event_payload(base_ts, "aggregator", 32767, "Max short service_id"),  # max signed short
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10)
         logs = resp.json()
         
         service_ids = {log["service_id"] for log in logs}
@@ -450,10 +401,10 @@ class TestGetEventData:
             create_event_payload(base_ts + 2000, "GCS", 1, "With severity", "info"),
             create_event_payload(base_ts + 1000, "aggregator", 2, "Without severity", None),
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers, limit=10)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=10)
         logs = resp.json()
         
         assert len(logs) == 2
@@ -471,12 +422,12 @@ class TestGetEventData:
             create_event_payload(base_ts + i*1000, "GCS", i+1, f"Event {i+1}")
             for i in range(20)
         ]
-        post_test_events(api_headers, events)
+        post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
         
         responses = []
         for page in range(1, 6):
-            resp = get_event_logs(bearer_headers, limit=5, page=page)
+            resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers, limit=5, page=page)
             responses.append(resp)
         
         # Все запросы успешны
@@ -524,10 +475,10 @@ class TestGetEventIntegration:
         
         # Записываем событие
         event = create_event_payload(base_ts + 1000, "GCS", 1, "Event message")
-        post_test_events(api_headers, [event])
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         logs = resp.json()
         
         # Должно быть только событие, без полей телеметрии
@@ -553,10 +504,10 @@ class TestGetEventIntegration:
         
         # Записываем событие
         event = create_event_payload(base_ts + 1000, "GCS", 1, "Event message")
-        post_test_events(api_headers, [event])
+        post_event_logs(BACKEND_URL, api_headers, [event])
         wait_for_elastic_sync()
         
-        resp = get_event_logs(bearer_headers)
+        resp = get_paginated_logs(BACKEND_URL, "/log/event", bearer_headers)
         logs = resp.json()
         
         assert len(logs) == 1

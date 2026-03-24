@@ -5,50 +5,14 @@ import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, get_csv_headers, get_timestamp_ms, parse_csv_from_response
-
-def filter_rows_by_test_marker(rows: List[Dict[str, str]], marker_value: str, marker_field: str = "message") -> List[Dict[str, str]]:
-    """
-    Фильтрует строки CSV по тестовому маркеру.
-    Используется для исключения аудит-логов авторизации из результатов.
-    """
-    return [row for row in rows if marker_value in row.get(marker_field, "")]
-
-
-def insert_safety_log(
-    api_headers: Dict[str, str],
-    timestamp: Optional[int] = None,
-    service: str = "dronePort",
-    service_id: int = 2,
-    severity: Optional[str] = "warning",
-    message: str = "Test safety message",
-) -> Dict[str, Any]:
-    """
-    Вспомогательная функция: создаёт safety event через POST /log/event.
-    Возвращает отправленный документ.
-    """
-    if timestamp is None:
-        timestamp = get_timestamp_ms()
-    
-    payload = [{
-        "apiVersion": "1.0.0",
-        "timestamp": timestamp,
-        "event_type": "safety_event",
-        "service": service,
-        "service_id": service_id,
-        "severity": severity,
-        "message": message,
-    }]
-    
-    resp = requests.post(
-        f"{BACKEND_URL}/log/event",
-        json=payload,
-        headers=api_headers,
-        timeout=10
-    )
-    assert resp.status_code in (200, 207), f"Failed to insert safety log: {resp.text}"
-    
-    return payload[0]
+from .utils import (
+    wait_for_elastic_sync,
+    get_csv_headers,
+    get_timestamp_ms,
+    parse_csv_from_response,
+    filter_rows_by_match,
+    insert_safety_log,
+)
 
 
 class TestDownloadSafetyEmpty:
@@ -69,7 +33,7 @@ class TestDownloadSafetyEmpty:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем по маркеру тестовых данных — их быть не должно
-        test_rows = filter_rows_by_test_marker(rows, "Test safety message")
+        test_rows = filter_rows_by_match(rows, "Test safety message")
         assert len(test_rows) == 0
         
         # Заголовок должен быть всегда
@@ -86,7 +50,7 @@ class TestDownloadSafetyBasic:
         """Один документ должен корректно экспортироваться в CSV."""
         timestamp = get_timestamp_ms()
         test_message = "TEST_SINGLE_DOC_export_12345"
-        insert_safety_log(
+        insert_safety_log(BACKEND_URL, 
             api_headers=api_headers,
             timestamp=timestamp,
             service="GCS",
@@ -105,7 +69,7 @@ class TestDownloadSafetyBasic:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_message)
+        test_rows = filter_rows_by_match(rows, test_message)
         assert len(test_rows) == 1
         assert int(test_rows[0]["timestamp"]) == timestamp
         assert test_rows[0]["service"] == "GCS"
@@ -122,7 +86,7 @@ class TestDownloadSafetyBasic:
         timestamps = [base_ts + i * 1000 for i in range(5)]  # 5 документов
         
         for ts in timestamps:
-            insert_safety_log(api_headers=api_headers, timestamp=ts, message=f"{test_marker}{ts}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=ts, message=f"{test_marker}{ts}")
         
         wait_for_elastic_sync()
         
@@ -135,7 +99,7 @@ class TestDownloadSafetyBasic:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == 5
         
         # Проверка сортировки: timestamp должны идти по убыванию
@@ -146,7 +110,7 @@ class TestDownloadSafetyBasic:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """Заголовок CSV должен иметь строго определённый порядок колонок."""
-        insert_safety_log(api_headers=api_headers, message="TEST_HEADER_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_HEADER_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -162,7 +126,7 @@ class TestDownloadSafetyBasic:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """В CSV не должно быть лишних колонок (_id, _index, apiVersion и др.)."""
-        insert_safety_log(api_headers=api_headers, message="TEST_COLUMNS_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_COLUMNS_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -189,7 +153,7 @@ class TestDownloadSafetyTimeFilter:
         test_marker = "TEST_FROM_TS_"
         # Создаём документы с timestamp: base_ts, base_ts+1000, base_ts+2000
         for i in range(3):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i * 1000, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i * 1000, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync()
         
@@ -204,7 +168,7 @@ class TestDownloadSafetyTimeFilter:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == 2  # base_ts+1000 и base_ts+2000
         timestamps = [int(row["timestamp"]) for row in test_rows]
         assert all(ts >= base_ts + 1000 for ts in timestamps)
@@ -216,7 +180,7 @@ class TestDownloadSafetyTimeFilter:
         base_ts = 1000000000000
         test_marker = "TEST_TO_TS_"
         for i in range(3):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i * 1000, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i * 1000, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync()
         
@@ -231,7 +195,7 @@ class TestDownloadSafetyTimeFilter:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == 2  # base_ts и base_ts+1000
         timestamps = [int(row["timestamp"]) for row in test_rows]
         assert all(ts <= base_ts + 1000 for ts in timestamps)
@@ -243,7 +207,7 @@ class TestDownloadSafetyTimeFilter:
         base_ts = 1000000000000
         test_marker = "TEST_RANGE_"
         for i in range(5):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i * 1000, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i * 1000, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync()
         
@@ -258,7 +222,7 @@ class TestDownloadSafetyTimeFilter:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == 3  # base_ts+1000, base_ts+2000, base_ts+3000
         timestamps = [int(row["timestamp"]) for row in test_rows]
         assert all(base_ts + 1000 <= ts <= base_ts + 3000 for ts in timestamps)
@@ -269,7 +233,7 @@ class TestDownloadSafetyTimeFilter:
         """Граница from_ts включительная (документ с точным timestamp входит)."""
         base_ts = 1000000000000
         test_message = "TEST_BOUNDARY_FROM_exact"
-        insert_safety_log(api_headers=api_headers, timestamp=base_ts, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -282,7 +246,7 @@ class TestDownloadSafetyTimeFilter:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_message)
+        test_rows = filter_rows_by_match(rows, test_message)
         assert len(test_rows) == 1
         assert int(test_rows[0]["timestamp"]) == base_ts
 
@@ -292,7 +256,7 @@ class TestDownloadSafetyTimeFilter:
         """Граница to_ts включительная (документ с точным timestamp входит)."""
         base_ts = 1000000000000
         test_message = "TEST_BOUNDARY_TO_exact"
-        insert_safety_log(api_headers=api_headers, timestamp=base_ts, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -305,7 +269,7 @@ class TestDownloadSafetyTimeFilter:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_message)
+        test_rows = filter_rows_by_match(rows, test_message)
         assert len(test_rows) == 1
         assert int(test_rows[0]["timestamp"]) == base_ts
 
@@ -315,7 +279,7 @@ class TestDownloadSafetyTimeFilter:
         """Диапазон без совпадений должен вернуть CSV без наших тестовых данных."""
         base_ts = 1000000000000
         test_message = "TEST_NO_MATCHES_here"
-        insert_safety_log(api_headers=api_headers, timestamp=base_ts, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts, message=test_message)
         wait_for_elastic_sync()
         
         # Запрашиваем диапазон, где нет документов
@@ -329,7 +293,7 @@ class TestDownloadSafetyTimeFilter:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные — их быть не должно в этом диапазоне
-        test_rows = filter_rows_by_test_marker(rows, test_message)
+        test_rows = filter_rows_by_match(rows, test_message)
         assert len(test_rows) == 0
 
 
@@ -341,7 +305,7 @@ class TestDownloadSafetySpecialCharacters:
     ):
         """Запятая в message должна быть корректно экранирована."""
         test_message = "TEST_COMMA_Error, critical failure"
-        insert_safety_log(api_headers=api_headers, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -351,7 +315,7 @@ class TestDownloadSafetySpecialCharacters:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, "TEST_COMMA_")
+        test_rows = filter_rows_by_match(rows, "TEST_COMMA_")
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == test_message
 
@@ -360,7 +324,7 @@ class TestDownloadSafetySpecialCharacters:
     ):
         """Кавычки в message должны быть корректно экранированы."""
         test_message = 'TEST_QUOTES_Failed with "error" code'
-        insert_safety_log(api_headers=api_headers, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -370,7 +334,7 @@ class TestDownloadSafetySpecialCharacters:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, "TEST_QUOTES_")
+        test_rows = filter_rows_by_match(rows, "TEST_QUOTES_")
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == test_message
 
@@ -379,7 +343,7 @@ class TestDownloadSafetySpecialCharacters:
     ):
         """Перенос строки в message не должен ломать CSV."""
         test_message = "TEST_NEWLINE_Line1\nLine2"
-        insert_safety_log(api_headers=api_headers, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -389,7 +353,7 @@ class TestDownloadSafetySpecialCharacters:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, "TEST_NEWLINE_")
+        test_rows = filter_rows_by_match(rows, "TEST_NEWLINE_")
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == test_message
 
@@ -398,7 +362,7 @@ class TestDownloadSafetySpecialCharacters:
     ):
         """Кириллица в message должна корректно кодироваться в UTF-8."""
         test_message = "TEST_CYRILLIC_Ошибка подключения к дрону"
-        insert_safety_log(api_headers=api_headers, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -411,7 +375,7 @@ class TestDownloadSafetySpecialCharacters:
         content = resp.content.decode("utf-8")
         assert "Ошибка" in content
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, "TEST_CYRILLIC_")
+        test_rows = filter_rows_by_match(rows, "TEST_CYRILLIC_")
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == test_message
 
@@ -420,7 +384,7 @@ class TestDownloadSafetySpecialCharacters:
     ):
         """Эмодзи в message должны корректно кодироваться."""
         test_message = "TEST_EMOJI_Warning ⚠️ Critical 🚨"
-        insert_safety_log(api_headers=api_headers, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -430,7 +394,7 @@ class TestDownloadSafetySpecialCharacters:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, "TEST_EMOJI_")
+        test_rows = filter_rows_by_match(rows, "TEST_EMOJI_")
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == test_message
 
@@ -439,7 +403,7 @@ class TestDownloadSafetySpecialCharacters:
     ):
         """Длинное сообщение (1024 символа) должно экспортироваться целиком."""
         test_message = "TEST_LONG_" + "x" * 1014  # 1024 символа всего
-        insert_safety_log(api_headers=api_headers, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -449,7 +413,7 @@ class TestDownloadSafetySpecialCharacters:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, "TEST_LONG_")
+        test_rows = filter_rows_by_match(rows, "TEST_LONG_")
         assert len(test_rows) == 1
         assert len(test_rows[0]["message"]) == 1024
 
@@ -462,7 +426,7 @@ class TestDownloadSafetyNullValues:
     ):
         """None значение severity должно стать пустой строкой в CSV."""
         test_message = "TEST_NULL_SEVERITY_here"
-        insert_safety_log(api_headers=api_headers, severity=None, message=test_message)
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, severity=None, message=test_message)
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -472,7 +436,7 @@ class TestDownloadSafetyNullValues:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, test_message)
+        test_rows = filter_rows_by_match(rows, test_message)
         assert len(test_rows) == 1
         assert test_rows[0]["severity"] == ""
 
@@ -484,7 +448,7 @@ class TestDownloadSafetyHttpHeaders:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """Content-Type должен быть application/octet-stream."""
-        insert_safety_log(api_headers=api_headers, message="TEST_CONTENT_TYPE_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_CONTENT_TYPE_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -499,7 +463,7 @@ class TestDownloadSafetyHttpHeaders:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """Content-Disposition без фильтров: safety_logs_all_all.csv."""
-        insert_safety_log(api_headers=api_headers, message="TEST_DISP_ALL_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_DISP_ALL_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -514,7 +478,7 @@ class TestDownloadSafetyHttpHeaders:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """Content-Disposition с from_ts: safety_logs_{from_ts}_all.csv."""
-        insert_safety_log(api_headers=api_headers, message="TEST_DISP_FROM_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_DISP_FROM_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -530,7 +494,7 @@ class TestDownloadSafetyHttpHeaders:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """Content-Disposition с to_ts: safety_logs_all_{to_ts}.csv."""
-        insert_safety_log(api_headers=api_headers, message="TEST_DISP_TO_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_DISP_TO_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -546,7 +510,7 @@ class TestDownloadSafetyHttpHeaders:
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """Content-Disposition с обоими фильтрами: safety_logs_{from}_{to}.csv."""
-        insert_safety_log(api_headers=api_headers, message="TEST_DISP_BOTH_marker")
+        insert_safety_log(BACKEND_URL, api_headers=api_headers, message="TEST_DISP_BOTH_marker")
         wait_for_elastic_sync()
         
         resp = requests.get(
@@ -575,7 +539,7 @@ class TestDownloadSafetyScrollPagination:
         
         # Вставляем 1500 документов
         for i in range(total_docs):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync(seconds=5)  # Больше времени для индексации
         
@@ -588,7 +552,7 @@ class TestDownloadSafetyScrollPagination:
         rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые данные
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == total_docs
 
     def test_different_service_values(
@@ -600,7 +564,7 @@ class TestDownloadSafetyScrollPagination:
         test_marker = "TEST_SERVICE_"
         
         for i, service in enumerate(services):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i, service=service, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i, service=service, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync()
         
@@ -611,7 +575,7 @@ class TestDownloadSafetyScrollPagination:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == len(services)
         exported_services = [row["service"] for row in test_rows]
         assert set(exported_services) == set(services)
@@ -625,7 +589,7 @@ class TestDownloadSafetyScrollPagination:
         test_marker = "TEST_SEVERITY_"
         
         for i, severity in enumerate(severities):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i, severity=severity, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i, severity=severity, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync()
         
@@ -636,7 +600,7 @@ class TestDownloadSafetyScrollPagination:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == len(severities)
         exported_severities = [row["severity"] for row in test_rows]
         assert set(exported_severities) == set(severities)
@@ -650,7 +614,7 @@ class TestDownloadSafetyScrollPagination:
         test_marker = "TEST_SERVICE_ID_"
         
         for i, sid in enumerate(service_ids):
-            insert_safety_log(api_headers=api_headers, timestamp=base_ts + i, service_id=sid, message=f"{test_marker}{i}")
+            insert_safety_log(BACKEND_URL, api_headers=api_headers, timestamp=base_ts + i, service_id=sid, message=f"{test_marker}{i}")
         
         wait_for_elastic_sync()
         
@@ -661,7 +625,7 @@ class TestDownloadSafetyScrollPagination:
         )
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_test_marker(rows, test_marker)
+        test_rows = filter_rows_by_match(rows, test_marker)
         assert len(test_rows) == 3
         exported_ids = [int(row["service_id"]) for row in test_rows]
         assert set(exported_ids) == set(service_ids)
@@ -680,7 +644,7 @@ class TestDownloadSafetyAuditLogs:
         base_ts = get_timestamp_ms()
         test_message = "TEST_AUDIT_INCLUDE_internal"
         # Вставляем лог от infopanel (AUDIT_SERVICE в бэкенде)
-        insert_safety_log(
+        insert_safety_log(BACKEND_URL, 
             api_headers=api_headers,
             timestamp=base_ts,
             service="infopanel",
@@ -697,7 +661,7 @@ class TestDownloadSafetyAuditLogs:
         assert resp.status_code == 200
         rows = parse_csv_from_response(resp)
         # Фильтруем по нашему тестовому маркеру
-        test_rows = filter_rows_by_test_marker(rows, test_message)
+        test_rows = filter_rows_by_match(rows, test_message)
         # Аудит-лог должен быть в download (в отличие от GET /log/safety)
         infopanel_logs = [r for r in test_rows if r["service"] == "infopanel"]
         assert len(infopanel_logs) == 1

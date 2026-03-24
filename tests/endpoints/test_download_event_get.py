@@ -14,17 +14,13 @@ import pytest
 import requests
 
 from .conftest import BACKEND_URL
-from .utils import wait_for_elastic_sync, get_timestamp_ms, get_csv_headers, parse_csv_from_response
-
-def filter_rows_by_prefix(rows: List[Dict[str, str]], prefix: str, field: str = "message") -> List[Dict[str, str]]:
-    """Фильтрует строки CSV по префиксу в указанном поле."""
-    return [row for row in rows if row.get(field, "").startswith(prefix)]
-
-
-def generate_test_prefix() -> str:
-    """Генерирует уникальный префикс для тестовых данных."""
-    return f"TEST_{uuid.uuid4().hex[:8]}"
-
+from .utils import (
+    wait_for_elastic_sync,
+    get_timestamp_ms,
+    get_csv_headers,
+    parse_csv_from_response,
+    filter_rows_by_match,
+)
 
 class TestDownloadEventBasic:
     """Базовые тесты для GET /log/download/event."""
@@ -51,7 +47,7 @@ class TestDownloadEventBasic:
 
     def test_download_event_all_data(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-02: Выгрузка всех данных без фильтров."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         # Записываем 3 события с уникальным префиксом
@@ -98,7 +94,7 @@ class TestDownloadEventBasic:
         all_rows = parse_csv_from_response(resp)
         
         # Фильтруем только наши тестовые записи (исключаем аудит-логи)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # Проверяем, что все 3 тестовые записи на месте
         assert len(test_rows) == 3
@@ -128,7 +124,7 @@ class TestDownloadEventTimestampFilters:
 
     def test_download_event_filter_full_range(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-03: Фильтрация по полному диапазону (from_ts + to_ts)."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         # Записываем события с известными timestamp
@@ -162,7 +158,7 @@ class TestDownloadEventTimestampFilters:
         
         all_rows = parse_csv_from_response(resp)
         # Фильтруем только наши тестовые записи
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # Должны быть события 200, 300, 400 (границы включительно)
         assert len(test_rows) == 3
@@ -171,7 +167,7 @@ class TestDownloadEventTimestampFilters:
 
     def test_download_event_filter_from_only(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-04: Фильтрация только по from_ts."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         test_timestamps = [base_ts + 100, base_ts + 200, base_ts + 300]
@@ -200,7 +196,7 @@ class TestDownloadEventTimestampFilters:
         assert f'filename="event_logs_{from_ts}_all.csv"' in resp.headers["content-disposition"]
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # Должны быть события >= from_ts (200, 300)
         assert len(test_rows) == 2
@@ -209,7 +205,7 @@ class TestDownloadEventTimestampFilters:
 
     def test_download_event_filter_to_only(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-05: Фильтрация только по to_ts."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         test_timestamps = [base_ts + 100, base_ts + 200, base_ts + 300]
@@ -238,7 +234,7 @@ class TestDownloadEventTimestampFilters:
         assert f'filename="event_logs_all_{to_ts}.csv"' in resp.headers["content-disposition"]
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # Должны быть события <= to_ts (100, 200)
         assert len(test_rows) == 2
@@ -247,7 +243,7 @@ class TestDownloadEventTimestampFilters:
 
     def test_download_event_filter_no_matches(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-06: Диапазон без совпадений."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         # Записываем события с timestamp: 100, 500
@@ -285,7 +281,7 @@ class TestDownloadEventTimestampFilters:
         assert f'filename="event_logs_{from_ts}_{to_ts}.csv"' in resp.headers["content-disposition"]
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # Наши тестовые записи не должны попасть в диапазон
         assert len(test_rows) == 0
@@ -296,7 +292,7 @@ class TestDownloadEventCSVFormat:
 
     def test_download_event_header_order(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-07: Проверка порядка колонок в заголовке."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -320,7 +316,7 @@ class TestDownloadEventCSVFormat:
 
     def test_download_event_null_severity(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-08: Обработка null значений в поле severity."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -340,7 +336,7 @@ class TestDownloadEventCSVFormat:
         assert resp.status_code == 200
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         assert len(test_rows) == 1
         assert test_rows[0]["severity"] == ""
@@ -348,7 +344,7 @@ class TestDownloadEventCSVFormat:
 
     def test_download_event_commas_in_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-09: Экранирование запятых в сообщении."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -368,7 +364,7 @@ class TestDownloadEventCSVFormat:
         assert resp.status_code == 200
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == f"{test_prefix} Error, code: 500, retry"
@@ -376,7 +372,7 @@ class TestDownloadEventCSVFormat:
 
     def test_download_event_quotes_in_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-10: Экранирование двойных кавычек в сообщении."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -396,14 +392,14 @@ class TestDownloadEventCSVFormat:
         assert resp.status_code == 200
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == f'{test_prefix} Say "Hello"'
 
     def test_download_event_newlines_in_message(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-11: Экранирование переносов строк в сообщении."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -423,14 +419,14 @@ class TestDownloadEventCSVFormat:
         assert resp.status_code == 200
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == f"{test_prefix} Line 1\nLine 2\nLine 3"
 
     def test_download_event_utf8_cyrillic(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-12: Кодировка UTF-8 (кириллица)."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -453,14 +449,14 @@ class TestDownloadEventCSVFormat:
         assert "Ошибка запуска системы" in content
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == f"{test_prefix} Ошибка запуска системы"
 
     def test_download_event_utf8_emoji(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-12: Кодировка UTF-8 (эмодзи)."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         payload = [{
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
@@ -484,7 +480,7 @@ class TestDownloadEventCSVFormat:
         assert "✅" in content
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         assert len(test_rows) == 1
         assert test_rows[0]["message"] == f"{test_prefix} Drone launched 🚀 successfully ✅"
@@ -495,7 +491,7 @@ class TestDownloadEventScroll:
 
     def test_download_event_large_dataset(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-13: Выгрузка большого объёма данных (>1000 записей)."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         # Записываем 1500 событий (больше batch_size=1000)
@@ -525,7 +521,7 @@ class TestDownloadEventScroll:
         
         all_rows = parse_csv_from_response(resp)
         # Фильтруем только наши тестовые записи
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # Проверяем, что все тестовые записи на месте
         assert len(test_rows) == total_records
@@ -543,7 +539,7 @@ class TestDownloadEventAuditLogs:
 
     def test_download_event_includes_audit_service(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-14: Проверка, попадают ли логи сервиса 'infopanel' в выгрузку."""
-        test_prefix = generate_test_prefix()
+        test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
         # Записываем событие от infopanel (внутренний аудит-сервис)
@@ -578,7 +574,7 @@ class TestDownloadEventAuditLogs:
         assert resp.status_code == 200
         
         all_rows = parse_csv_from_response(resp)
-        test_rows = filter_rows_by_prefix(all_rows, test_prefix)
+        test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
         # В download_event_csv нет фильтра exclude_service
         services = [row["service"] for row in test_rows]
