@@ -22,13 +22,18 @@ def filter_rows_by_match(
 
 def auth_login(
     backend_url: str,
-    credentials: Dict[str, Any],
+    credentials: Optional[Dict[str, Any]] = None,
+    *,
+    json: Optional[Dict[str, Any]] = None,
     timeout: int = 5,
 ) -> requests.Response:
     """Выполняет POST /auth/login."""
+    payload = json if json is not None else credentials
+    if payload is None:
+        payload = {}
     return requests.post(
         f"{backend_url}/auth/login",
-        json=credentials,
+        json=payload,
         timeout=timeout,
     )
 

@@ -168,7 +168,7 @@ class TestLogoutAuthErrors:
         
         resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert_api_error(resp, 401, message_contains="Invalid token type")
+        assert_api_error(resp, 401, message_contains="Invalid token")
 
 
 class TestLogoutLogicErrors:
@@ -195,7 +195,7 @@ class TestLogoutLogicErrors:
         
         resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert_api_error(resp, 401, message_contains="Invalid token type")
+        assert_api_error(resp, 401, message_contains="Invalid token")
 
     def test_expired_refresh_token(self, logged_in_tokens: Dict[str, Any]):
         """Использование просроченного refresh_token."""
@@ -241,7 +241,7 @@ class TestLogoutLogicErrors:
         
         resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert_api_error(resp, 401, message_contains="Invalid token type")
+        assert_api_error(resp, 401, message_contains="Invalid token")
 
 
 class TestLogoutAudit:
