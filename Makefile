@@ -16,13 +16,15 @@ local: secrets prod
 
 clean:
 	docker compose down
+	docker rm tests
 
 healthcheck: prod clean
 
 .PHONY: tests secrets
 
-tests: healthcheck
-	cd tests && uv sync && uv run pytest
+tests:
+	docker compose --profile tests up -d --build
+	docker logs -f tests
 
 watch:
 	docker compose watch
