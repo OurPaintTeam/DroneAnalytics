@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import hmac
 import secrets
 
 PASSWORD_HASH_ALGORITHM = "pbkdf2_sha256"
