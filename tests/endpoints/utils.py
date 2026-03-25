@@ -1,12 +1,38 @@
-import requests
-import pytest
-import time
-import os
-import csv
 import io
-from typing import List, Optional, Dict, Any
+import csv
+import os
+import time
+from typing import Any, Dict, List, Optional
+
+import pytest
+import requests
+
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 INDICES = ["telemetry", "basic", "event", "safety"]
+DEFAULT_TIMEOUT = 5
+LOGS_TIMEOUT = 10
+DEFAULT_API_VERSION = "1.0.0"
+
+
+def _decode_csv_content(response: requests.Response) -> str:
+    """Декодирует CSV-контент из HTTP-ответа."""
+    return bytes(response.content).decode("utf-8")
+
+
+def _post(
+    backend_url: str,
+    endpoint: str,
+    *,
+    timeout: int,
+    **kwargs: Any,
+) -> requests.Response:
+    """Универсальный POST в backend."""
+    return requests.post(f"{backend_url}{endpoint}", timeout=timeout, **kwargs)
+
+
+def _elastic_url(path: str) -> str:
+    """Собирает URL для ElasticSearch."""
+    return f"{ELASTIC_URL}/{path.lstrip('/')}"
 
 def filter_rows_by_match(
     rows: List[Dict[str, str]],
@@ -25,17 +51,13 @@ def auth_login(
     credentials: Optional[Dict[str, Any]] = None,
     *,
     json: Optional[Dict[str, Any]] = None,
-    timeout: int = 5,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> requests.Response:
     """Выполняет POST /auth/login."""
     payload = json if json is not None else credentials
     if payload is None:
         payload = {}
-    return requests.post(
-        f"{backend_url}/auth/login",
-        json=payload,
-        timeout=timeout,
-    )
+    return _post(backend_url, "/auth/login", json=payload, timeout=timeout)
 
 
 def auth_refresh(
@@ -43,7 +65,7 @@ def auth_refresh(
     payload: Optional[Dict[str, Any]] = None,
     headers: Optional[Dict[str, str]] = None,
     data: Optional[str] = None,
-    timeout: int = 5,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> requests.Response:
     """Выполняет POST /auth/refresh."""
     request_kwargs: Dict[str, Any] = {"timeout": timeout}
@@ -53,7 +75,7 @@ def auth_refresh(
         request_kwargs["data"] = data
     else:
         request_kwargs["json"] = payload if payload is not None else {}
-    return requests.post(f"{backend_url}/auth/refresh", **request_kwargs)
+    return _post(backend_url, "/auth/refresh", **request_kwargs)
 
 
 def auth_logout(
@@ -61,14 +83,15 @@ def auth_logout(
     payload: Dict[str, Any],
     access_token: Optional[str] = None,
     headers: Optional[Dict[str, str]] = None,
-    timeout: int = 5,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> requests.Response:
     """Выполняет POST /auth/logout."""
     request_headers = dict(headers or {})
     if access_token is not None:
         request_headers.setdefault("Authorization", f"Bearer {access_token}")
-    return requests.post(
-        f"{backend_url}/auth/logout",
+    return _post(
+        backend_url,
+        "/auth/logout",
         json=payload,
         headers=request_headers or None,
         timeout=timeout,
@@ -103,7 +126,7 @@ def create_event_payload(
 ) -> Dict[str, Any]:
     """Создаёт валидный payload для POST /log/event."""
     payload = {
-        "apiVersion": "1.0.0",
+        "apiVersion": DEFAULT_API_VERSION,
         "timestamp": timestamp if timestamp is not None else get_timestamp_ms(),
         "event_type": event_type,
         "service": service,
@@ -119,11 +142,12 @@ def post_event_logs(
     backend_url: str,
     api_headers: Dict[str, str],
     events: List[Dict[str, Any]],
-    timeout: int = 10,
+    timeout: int = LOGS_TIMEOUT,
 ) -> requests.Response:
     """Отправляет пакет событий через POST /log/event."""
-    return requests.post(
-        f"{backend_url}/log/event",
+    return _post(
+        backend_url,
+        "/log/event",
         json=events,
         headers=api_headers,
         timeout=timeout,
@@ -133,11 +157,12 @@ def post_basic_logs(
     backend_url: str,
     api_headers: Dict[str, str],
     logs: List[Dict[str, Any]],
-    timeout: int = 10,
+    timeout: int = LOGS_TIMEOUT,
 ) -> requests.Response:
     """Отправляет пакет basic-логов через POST /log/basic."""
-    return requests.post(
-        f"{backend_url}/log/basic",
+    return _post(
+        backend_url,
+        "/log/basic",
         json=logs,
         headers=api_headers,
         timeout=timeout,
@@ -157,7 +182,7 @@ def create_telemetry_payload(
 ) -> Dict[str, Any]:
     """Создаёт валидный payload для POST /log/telemetry."""
     payload = {
-        "apiVersion": "1.0.0",
+        "apiVersion": DEFAULT_API_VERSION,
         "timestamp": timestamp,
         "drone": drone,
         "drone_id": drone_id,
@@ -179,7 +204,7 @@ def post_telemetry_logs(
     backend_url: str,
     api_headers: Dict[str, str],
     telemetry_records: List[Dict[str, Any]],
-    timeout: int = 10,
+    timeout: int = LOGS_TIMEOUT,
 ) -> requests.Response:
     """Отправляет пакет telemetry-логов через POST /log/telemetry."""
     return requests.post(
@@ -196,7 +221,7 @@ def get_paginated_logs(
     bearer_headers: Dict[str, str],
     limit: int = 10,
     page: int = 1,
-    timeout: int = 10,
+    timeout: int = LOGS_TIMEOUT,
 ) -> requests.Response:
     """Запрашивает логи с параметрами пагинации."""
     return requests.get(
@@ -215,14 +240,14 @@ def insert_safety_log(
     service_id: int = 2,
     severity: Optional[str] = "warning",
     message: str = "Test safety message",
-    timeout: int = 10,
+    timeout: int = LOGS_TIMEOUT,
 ) -> Dict[str, Any]:
     """Создаёт safety event через POST /log/event и возвращает отправленный документ."""
     if timestamp is None:
         timestamp = get_timestamp_ms()
 
     payload = [{
-        "apiVersion": "1.0.0",
+        "apiVersion": DEFAULT_API_VERSION,
         "timestamp": timestamp,
         "event_type": "safety_event",
         "service": service,
@@ -239,14 +264,14 @@ def parse_csv_from_response(response: requests.Response) -> List[Dict[str, str]]
     Парсит CSV из StreamingResponse.
     Возвращает список словарей, где ключи — заголовки колонок.
     """
-    content = response.content.decode("utf-8")
+    content = _decode_csv_content(response)
     reader = csv.DictReader(io.StringIO(content))
     return list(reader)
 
 
 def get_csv_headers(response: requests.Response) -> List[str]:
     """Извлекает заголовки колонок из CSV ответа."""
-    content = response.content.decode("utf-8")
+    content = _decode_csv_content(response)
     reader = csv.reader(io.StringIO(content))
     return next(reader)
 
@@ -267,7 +292,7 @@ def elastic_health_check(timeout: int = 30) -> bool:
     start = time.time()
     while time.time() - start < timeout:
         try:
-            resp = requests.get(f"{ELASTIC_URL}/_cluster/health", timeout=2)
+            resp = requests.get(_elastic_url("/_cluster/health"), timeout=2)
             if resp.status_code == 200:
                 status = resp.json().get("status")
                 if status in ("green", "yellow"):
@@ -277,7 +302,11 @@ def elastic_health_check(timeout: int = 30) -> bool:
         time.sleep(1)
     return False
 
-def get_recent_audit_log(expected_substring: str, severity: str, index_name: str = "safety") -> Optional[dict]:
+def get_recent_audit_log(
+    expected_substring: str,
+    severity: str,
+    index_name: str = "safety",
+) -> Optional[dict]:
     """
     Ищет самую свежую запись аудита, содержащую подстроку и severity.
     
@@ -290,10 +319,10 @@ def get_recent_audit_log(expected_substring: str, severity: str, index_name: str
         dict с _source записи или None, если не найдено
     """        
     # Ждем применения изменений в ES (eventual consistency)
-    time.sleep(1.5)
+    wait_for_elastic_sync()
     
     # Получаем текущее время в миллисекундах для фильтра
-    now_ms = int(time.time() * 1000)
+    now_ms = get_timestamp_ms()
     # Ищем записи за последние 10 секунд
     time_range_ms = 10000
     
@@ -320,9 +349,9 @@ def get_recent_audit_log(expected_substring: str, severity: str, index_name: str
             "size": 1
         }
         resp = requests.post(
-            f"{ELASTIC_URL}/{index_name}/_search",
+            _elastic_url(f"{index_name}/_search"),
             json=query,
-            timeout=5
+            timeout=DEFAULT_TIMEOUT,
         )
         if resp.status_code != 200:
             pytest.skip(f"ElasticSearch returned status {resp.status_code}")
@@ -338,9 +367,9 @@ def clean_index(index_name: str) -> bool:
     try:
         # DELETE by query удаляет все документы, оставляя индекс с маппингом
         resp = requests.post(
-            f"{ELASTIC_URL}/{index_name}/_delete_by_query",
+            _elastic_url(f"{index_name}/_delete_by_query"),
             json={"query": {"match_all": {}}},
-            timeout=5
+            timeout=DEFAULT_TIMEOUT
         )
         return resp.status_code in (200, 404)  # 404 если индекс ещё не создан
     except requests.RequestException:
@@ -357,7 +386,7 @@ def clean_all_indices() -> None:
 def delete_index(index_name: str) -> bool:
     """Полностью удаляет индекс (если нужно создать с нуля)."""
     try:
-        resp = requests.delete(f"{ELASTIC_URL}/{index_name}", timeout=5)
+        resp = requests.delete(_elastic_url(index_name), timeout=DEFAULT_TIMEOUT)
         return resp.status_code in (200, 404)
     except requests.RequestException:
         return False
@@ -389,9 +418,9 @@ def recreate_indices() -> bool:
                 "dynamic": "strict",
                 "properties": {
                     "timestamp": {"type": "date", "format": "epoch_millis"},
-                    "message": {"type": "text", "analyzer": "standard"}
+                    "message": {"type": "text", "analyzer": "standard"},
                 }
-            }
+            },
         },
         "event": {
             "settings": {"number_of_shards": 1, "number_of_replicas": 0},
@@ -402,9 +431,9 @@ def recreate_indices() -> bool:
                     "service": {"type": "keyword"},
                     "service_id": {"type": "short", "null_value": 1},
                     "severity": {"type": "keyword"},
-                    "message": {"type": "text", "analyzer": "standard"}
+                    "message": {"type": "text", "analyzer": "standard"},
                 }
-            }
+            },
         },
         "safety": {
             "settings": {"number_of_shards": 1, "number_of_replicas": 0},
@@ -415,21 +444,21 @@ def recreate_indices() -> bool:
                     "service": {"type": "keyword"},
                     "service_id": {"type": "short", "null_value": 1},
                     "severity": {"type": "keyword"},
-                    "message": {"type": "text", "analyzer": "standard"}
+                    "message": {"type": "text", "analyzer": "standard"},
                 }
-            }
-        }
+            },
+        },
     }
     
     for index_name, mapping in mappings.items():
         try:
             # Сначала удаляем, если существует
-            requests.delete(f"{ELASTIC_URL}/{index_name}", timeout=2)
+            requests.delete(_elastic_url(index_name), timeout=2)
             # Создаём заново
             resp = requests.put(
-                f"{ELASTIC_URL}/{index_name}",
+                _elastic_url(index_name),
                 json=mapping,
-                timeout=5
+                timeout=DEFAULT_TIMEOUT
             )
             if resp.status_code not in (200, 201):
                 return False
