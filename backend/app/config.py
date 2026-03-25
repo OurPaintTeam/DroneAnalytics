@@ -9,7 +9,8 @@ _logger = logging.getLogger(__name__)
 
 
 def _fail(message: str) -> None:
-    _logger.critical(message)
+    # Log a generic error to avoid leaking sensitive configuration details
+    _logger.critical("Backend configuration error")
     raise RuntimeError(message)
 
 
