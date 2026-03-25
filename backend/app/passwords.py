@@ -32,3 +32,12 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     except Exception:
         return False
 
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256",
+        plain_password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    )
+    digest = base64.urlsafe_b64encode(derived_key).decode("ascii").rstrip("=")
+    return secrets.compare_digest(digest, expected_digest)
+
