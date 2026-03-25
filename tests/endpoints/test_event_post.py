@@ -12,6 +12,7 @@ import time
 import pytest
 import requests
 from typing import Dict, Any
+import logging
 
 from .conftest import BACKEND_URL
 from .utils import wait_for_elastic_sync, get_timestamp_ms, ELASTIC_URL
@@ -81,8 +82,13 @@ def verify_doc_in_index(
                 hits = resp.json().get("hits", {}).get("hits", [])
                 if hits:
                     return True
-        except requests.RequestException:
-            pass
+        except requests.RequestException as exc:
+            logging.warning(
+                "Request to ElasticSearch failed in verify_doc_in_index for index '%s': %s",
+                index_name,
+                exc,
+                exc_info=True,
+            )
         time.sleep(1.5)
     return False
 
