@@ -44,6 +44,7 @@ def count_docs_in_index(index_name: str, query_filter: Optional[Dict] = None) ->
         return 0
     except requests.RequestException:
         pytest.skip("ElasticSearch unavailable for count check")
+        return 0
 
 
 def search_telemetry_by_drone_id(drone_id: int) -> List[Dict]:
