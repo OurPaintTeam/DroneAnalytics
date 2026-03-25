@@ -1,7 +1,5 @@
 """Тесты для GET /log/download/basic — экспорт логов в CSV."""
-from typing import List, Dict, Any, Optional
-
-import pytest
+from typing import Dict
 
 from .conftest import BACKEND_URL
 from .utils import (

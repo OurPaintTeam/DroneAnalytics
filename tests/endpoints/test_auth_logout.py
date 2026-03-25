@@ -2,8 +2,6 @@
 import time
 import jwt
 import secrets
-import pytest
-import requests
 from typing import Dict, Any, Optional
 
 from .conftest import (
@@ -12,7 +10,7 @@ from .conftest import (
     JWT_ALGORITHM,
     REFRESH_TTL_SECONDS,
 )
-from .utils import get_recent_audit_log
+from .utils import auth_login, auth_logout, assert_api_error, get_recent_audit_log
 
 
 def _create_custom_jwt(
@@ -59,12 +57,7 @@ class TestLogoutSuccess:
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
@@ -74,12 +67,7 @@ class TestLogoutSuccess:
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
         data = resp.json()
         assert isinstance(data, dict)
@@ -96,28 +84,16 @@ class TestLogoutValidation:
         """Отсутствует поле refresh_token в теле запроса."""
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json={},  # Пустое тело
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, {}, headers=headers, timeout=5)
         
-        assert resp.status_code == 400
-        assert "code" in resp.json()
-        assert resp.json()["code"] == 400
+        assert_api_error(resp, 400)
 
     def test_empty_refresh_token(self, logged_in_tokens: Dict[str, Any]):
         """Пустая строка в поле refresh_token."""
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         payload = {"refresh_token": ""}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
         assert resp.status_code == 400  # Validation error: min_length=16
 
@@ -126,12 +102,7 @@ class TestLogoutValidation:
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         payload = {"refresh_token": "short"}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
         assert resp.status_code == 400
 
@@ -143,15 +114,9 @@ class TestLogoutAuthErrors:
         """Запрос без заголовка Authorization."""
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, timeout=5)
         
-        assert resp.status_code == 401
-        assert resp.json()["code"] == 401
-        assert "Missing bearer token" in resp.json()["message"]
+        assert_api_error(resp, 401, message_contains="Missing bearer token")
 
     def test_expired_access_token(self, auth_credentials: Dict[str, str]):
         """Использование просроченного access_token."""
@@ -163,22 +128,13 @@ class TestLogoutAuthErrors:
         )
         
         # Нужен валидный refresh для прохождения валидации тела
-        login_resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json=auth_credentials,
-            timeout=5
-        )
+        login_resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
         refresh_token = login_resp.json()["refresh_token"]
         
         headers = {"Authorization": f"Bearer {expired_token}"}
         payload = {"refresh_token": refresh_token}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
         assert resp.status_code == 401
 
@@ -188,15 +144,9 @@ class TestLogoutAuthErrors:
         headers = {"Authorization": f"Bearer {logged_in_tokens['refresh_token']}"}
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert resp.status_code == 401
-        assert "Invalid token type" in resp.json()["message"]
+        assert_api_error(resp, 401, message_contains="Invalid token type")
 
     def test_invalid_jwt_signature(self, logged_in_tokens: Dict[str, Any]):
         """JWT с неверной подписью в заголовке Authorization."""
@@ -216,15 +166,9 @@ class TestLogoutAuthErrors:
         headers = {"Authorization": f"Bearer {fake_token}"}
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert resp.status_code == 401
-        assert "Invalid token" in resp.json()["message"]
+        assert_api_error(resp, 401, message_contains="Invalid token type")
 
 
 class TestLogoutLogicErrors:
@@ -249,15 +193,9 @@ class TestLogoutLogicErrors:
         
         payload = {"refresh_token": fake_refresh}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert resp.status_code == 401
-        assert "Invalid token" in resp.json()["message"]
+        assert_api_error(resp, 401, message_contains="Invalid token type")
 
     def test_expired_refresh_token(self, logged_in_tokens: Dict[str, Any]):
         """Использование просроченного refresh_token."""
@@ -272,12 +210,7 @@ class TestLogoutLogicErrors:
         
         payload = {"refresh_token": expired_refresh}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
         assert resp.status_code == 401
 
@@ -287,16 +220,10 @@ class TestLogoutLogicErrors:
         # Передаём access туда, где ждут refresh
         payload = {"refresh_token": logged_in_tokens["access_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert resp.status_code == 401
         # Ошибка: ожидался тип "refresh", получен "access"
-        assert "Invalid token type" in resp.json()["message"]
+        assert_api_error(resp, 401, message_contains="Invalid token type")
 
     def test_missing_required_claim_in_refresh(self, logged_in_tokens: Dict[str, Any]):
         """refresh_token без обязательного claim 'jti'."""
@@ -312,15 +239,9 @@ class TestLogoutLogicErrors:
         
         payload = {"refresh_token": malformed_refresh}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         
-        assert resp.status_code == 401
-        assert "Invalid token" in resp.json()["message"]
+        assert_api_error(resp, 401, message_contains="Invalid token type")
 
 
 class TestLogoutAudit:
@@ -331,12 +252,7 @@ class TestLogoutAudit:
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         assert resp.status_code == 200
         
         # Проверяем аудит
@@ -356,12 +272,7 @@ class TestLogoutAudit:
         headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
         payload = {"refresh_token": "invalid.token.signature"}
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/logout",
-            json=payload,
-            headers=headers,
-            timeout=5
-        )
+        resp = auth_logout(BACKEND_URL, payload, headers=headers, timeout=5)
         assert resp.status_code == 401
         
         audit_entry = get_recent_audit_log(

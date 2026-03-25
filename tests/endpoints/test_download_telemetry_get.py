@@ -1,10 +1,8 @@
 """Тесты для GET /log/download/* эндпоинтов (CSV экспорт)."""
 import csv
 import io
-import time
 from typing import Dict, Any, List, Optional
 
-import pytest
 import requests
 
 from .conftest import BACKEND_URL

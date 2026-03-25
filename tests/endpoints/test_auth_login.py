@@ -1,9 +1,9 @@
 import time
 import pytest
 import requests
-from typing import Dict, Any
+from typing import Dict
 
-from .utils import get_recent_audit_log
+from .utils import auth_login, assert_api_error, get_recent_audit_log
 
 from .conftest import BACKEND_URL
 
@@ -17,11 +17,7 @@ class TestLoginSuccess:
 
     def test_auth_001_login_with_default_credentials(self, auth_credentials: Dict[str, str]):
         """AUTH-001: Успешный вход с учетными данными по умолчанию."""
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json=auth_credentials,
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
         assert resp.status_code == 200
         data = resp.json()
         
@@ -38,11 +34,7 @@ class TestLoginSuccess:
 
     def test_auth_002_response_schema_validation(self, auth_credentials: Dict[str, str]):
         """AUTH-002: Тело ответа соответствует ожидаемой схеме."""
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json=auth_credentials,
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
         assert resp.status_code == 200
         data = resp.json()
         
@@ -63,58 +55,55 @@ class TestLoginValidation:
 
     def test_auth_010_empty_request_body(self):
         """AUTH-010: Пустое тело запроса."""
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json={}, timeout=5)
-        assert resp.status_code == 400
-        data = resp.json()
-        assert data["code"] == 400
-        assert "message" in data  # Сообщение об ошибке валидации
+        resp = auth_login(BACKEND_URL, {}, timeout=5)
+        assert_api_error(resp, 400)
 
     def test_auth_011_username_too_short(self, auth_credentials: Dict[str, str]):
         """AUTH-011: Username короче минимума (4 символа)."""
         payload = {**auth_credentials, "username": "usr"}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_012_username_too_long(self, auth_credentials: Dict[str, str]):
         """AUTH-012: Username длиннее максимума (64 символа)."""
         payload = {**auth_credentials, "username": "a" * 65}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_013_password_too_short(self, auth_credentials: Dict[str, str]):
         """AUTH-013: Password короче минимума (8 символов)."""
         payload = {**auth_credentials, "password": "1234567"}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_014_password_too_long(self, auth_credentials: Dict[str, str]):
         """AUTH-014: Password длиннее максимума (64 символа)."""
         payload = {**auth_credentials, "password": "x" * 65}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_015_extra_fields_forbidden(self, auth_credentials: Dict[str, str]):
         """AUTH-015: Лишние поля в запросе отклоняются (StrictModel)."""
         payload = {**auth_credentials, "extra_field": "should_be_rejected"}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_016_wrong_field_types(self):
         """AUTH-016: Неверный тип данных для полей."""
         payload = {"username": 12345, "password": 67890}  # int вместо str
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_017_missing_username(self, auth_credentials: Dict[str, str]):
         """Отсутствует обязательное поле username."""
         payload = {"password": auth_credentials["password"]}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
     def test_auth_018_missing_password(self, auth_credentials: Dict[str, str]):
         """Отсутствует обязательное поле password."""
         payload = {"username": auth_credentials["username"]}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 400
 
 
@@ -128,26 +117,21 @@ class TestLoginInvalidCredentials:
     def test_auth_020_wrong_password(self, auth_credentials: Dict[str, str]):
         """AUTH-020: Неверный пароль."""
         payload = {**auth_credentials, "password": "wrong_password_123"}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
-        assert resp.status_code == 401
-        data = resp.json()
-        assert data["code"] == 401
-        assert data["message"] == "Invalid credentials"
-
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
+        assert_api_error(resp, 401, message_exact="Invalid credentials")
+    
     def test_auth_021_wrong_username(self, auth_credentials: Dict[str, str]):
         """AUTH-021: Неверный username."""
         payload = {**auth_credentials, "username": "nonexistent_user"}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
-        assert resp.status_code == 401
-        assert resp.json()["message"] == "Invalid credentials"
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
+        assert_api_error(resp, 401, message_exact="Invalid credentials")
 
     def test_auth_022_both_credentials_wrong(self):
         """AUTH-022: Оба поля неверны."""
         payload = {"username": "fake_user", "password": "fake_pass"}
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
-        assert resp.status_code == 401
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         # Сообщение не раскрывает, какое именно поле неверно
-        assert resp.json()["message"] == "Invalid credentials"
+        assert_api_error(resp, 401, message_exact="Invalid credentials")
 
     def test_auth_023_case_sensitive_username(self, auth_credentials: Dict[str, str]):
         """AUTH-023: Username чувствителен к регистру."""
@@ -160,7 +144,7 @@ class TestLoginInvalidCredentials:
         if payload["username"] == auth_credentials["username"]:
             pytest.skip("Username case swap produced same string")
         
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 401
 
     def test_auth_024_whitespace_in_credentials(self, auth_credentials: Dict[str, str]):
@@ -169,7 +153,7 @@ class TestLoginInvalidCredentials:
             "username": auth_credentials["username"] + " ",
             "password": auth_credentials["password"]
         }
-        resp = requests.post(f"{BACKEND_URL}/auth/login", json=payload, timeout=5)
+        resp = auth_login(BACKEND_URL, json=payload, timeout=5)
         assert resp.status_code == 401
 
 
@@ -187,44 +171,28 @@ class TestLoginEdgeCases:
     def test_auth_030_username_min_length(self):
         """AUTH-030: Username ровно 4 символа (минимальная длина)."""
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": "test", "password": "test_password"},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": "test", "password": "test_password"}, timeout=5)
        
         assert resp.status_code != 400
 
     def test_auth_031_password_min_length(self):
         """AUTH-031: Password ровно 8 символов (минимальная длина)."""
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": "username", "password": "password"},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": "username", "password": "password"}, timeout=5)
         
         assert resp.status_code != 400
 
     def test_auth_032_special_chars_in_password(self):
         """AUTH-032: Спецсимволы в пароле обрабатываются корректно."""
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": "username", "password": "P@ssw0rd!#$%^&*()"},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": "username", "password": "P@ssw0rd!#$%^&*()"}, timeout=5)
 
         assert resp.status_code != 400
 
     def test_auth_033_unicode_in_password(self):
         """AUTH-033: Unicode-символы в password не ломают обработку."""
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": "username", "password": "пароль123!@#"},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": "username", "password": "пароль123!@#"}, timeout=5)
 
         assert resp.status_code != 400
 
@@ -232,11 +200,7 @@ class TestLoginEdgeCases:
         """AUTH-034: Username ровно 64 символа (максимальная длина)."""
         test_username = "u" * 64  # Ровно 64 символа
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": test_username, "password": "password"},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": test_username, "password": "password"}, timeout=5)
 
         assert resp.status_code != 400
 
@@ -244,11 +208,7 @@ class TestLoginEdgeCases:
         """AUTH-035: Password ровно 64 символа (максимальная длина)."""
         test_password = "p" * 64  # Ровно 64 символа
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": "username", "password": test_password},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": "username", "password": test_password}, timeout=5)
         assert resp.status_code != 400
 
     def test_auth_036_http_method_not_allowed(self):
@@ -260,11 +220,7 @@ class TestLoginEdgeCases:
     def test_auth_037_empty_string_fields(self):
         """AUTH-038: Пустые строки в полях отклоняются валидацией."""
         # Пустая строка не удовлетворяет min_length, поэтому ожидаем 400
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json={"username": "", "password": ""},
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, {"username": "", "password": ""}, timeout=5)
         assert resp.status_code == 400
 
 
@@ -272,10 +228,6 @@ class TestLoginEdgeCases:
 # ============================================================================
 # Проверка аудита (базовая интеграция с ElasticSearch)
 # ============================================================================
-
-class TestLoginAudit:
-    """Тесты проверки записей аудита в ElasticSearch."""
-
     
 class TestLoginAudit:
     """Тесты проверки записей аудита в ElasticSearch."""
@@ -287,11 +239,7 @@ class TestLoginAudit:
         before_ts = time.time()
         
         # Выполняем успешный логин
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json=auth_credentials,
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
         assert resp.status_code == 200
         
         # Ищем запись по известной части сообщения (без client_ip)
@@ -317,11 +265,7 @@ class TestLoginAudit:
         
         # Выполняем логин с неверным паролем
         payload = {**auth_credentials, "password": "wrong_password_for_audit_test"}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json=payload,
-            timeout=5
-        )
+        resp = auth_login(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 401
         
         # Ищем запись о неудаче

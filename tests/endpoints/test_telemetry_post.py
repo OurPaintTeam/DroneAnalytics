@@ -10,7 +10,7 @@
 """
 import pytest
 import requests
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 
 from .conftest import BACKEND_URL
 from .utils import get_recent_audit_log, wait_for_elastic_sync, get_timestamp_ms
@@ -470,8 +470,7 @@ class TestTelemetryPartialSuccess:
         
         wait_for_elastic_sync()
         # Ни один документ не должен попасть в базу
-        initial_count = count_docs_in_index("telemetry")
-        # После теста фикстура очистит данные, но прямо сейчас новых быть не должно
+        count_docs_in_index("telemetry")
 
 
 # ============================================================================

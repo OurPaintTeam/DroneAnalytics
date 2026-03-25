@@ -1,8 +1,6 @@
 """Интеграционные тесты для GET /log/telemetry."""
-import time
 from typing import Dict, Any, List
 
-import pytest
 import requests
 
 from .conftest import BACKEND_URL

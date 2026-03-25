@@ -1,7 +1,6 @@
 """Интеграционные тесты для GET /log/event."""
-import pytest
 import requests
-from typing import Dict, Any, List
+from typing import Dict
 
 from .conftest import BACKEND_URL
 from .utils import (

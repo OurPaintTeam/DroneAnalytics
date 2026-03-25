@@ -7,7 +7,6 @@
 - Фактическое состояние индекса 'basic' в ElasticSearch
 - Частичный успех при пакетной отправке
 """
-import time
 import pytest
 import requests
 from typing import Dict, Any, List

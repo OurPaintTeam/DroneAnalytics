@@ -7,10 +7,9 @@ import os
 import time
 import jwt
 import pytest
-import requests
 from typing import Dict, Any, Optional
 
-from .utils import get_recent_audit_log
+from .utils import auth_login, auth_refresh, assert_api_error, get_recent_audit_log
 
 from .conftest import BACKEND_URL, JWT_ALGORITHM, REFRESH_TTL_SECONDS, SECRET_KEY
 
@@ -48,11 +47,7 @@ class TestAuthRefreshSuccess:
     def test_refresh_success(self, logged_in_tokens: Dict[str, Any]):
         """RF-01: Успешное обновление токенов валидным refresh-токеном."""
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 200
         data = resp.json()
         assert "access_token" in data
@@ -67,11 +62,7 @@ class TestAuthRefreshSuccess:
         old_refresh = logged_in_tokens["refresh_token"]
         
         payload = {"refresh_token": old_refresh}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 200
         data = resp.json()
         assert data["access_token"] != old_access
@@ -80,11 +71,7 @@ class TestAuthRefreshSuccess:
     def test_refresh_preserves_subject(self, logged_in_tokens: Dict[str, Any], auth_credentials: Dict[str, str]):
         """RF-03: Субъект (пользователь) сохраняется в новом токене."""
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 200
         new_access = resp.json()["access_token"]
         
@@ -101,21 +88,13 @@ class TestAuthRefreshSuccess:
     def test_refresh_immediately_after_login(self, auth_credentials: Dict[str, str]):
         """RF-04: Рефреш работает сразу после получения токена от логина."""
         # Логин
-        login_resp = requests.post(
-            f"{BACKEND_URL}/auth/login",
-            json=auth_credentials,
-            timeout=5,
-        )
+        login_resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
         assert login_resp.status_code == 200
         refresh_token = login_resp.json()["refresh_token"]
         
         # Сразу рефреш
         payload = {"refresh_token": refresh_token}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 200
         assert resp.json()["token_type"] == "Bearer"
 
@@ -134,39 +113,22 @@ class TestAuthRefreshValidation:
     def test_refresh_token_length_validation(self, token_value: str, expected_status: int):
         """RF-11, RF-12, RF-13: Проверка ограничений длины токена."""
         payload = {"refresh_token": token_value}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == expected_status
 
     def test_refresh_missing_field(self):
         """RF-14: Отсутствует обязательное поле refresh_token."""
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json={},
-            timeout=5,
-        )
-        assert resp.status_code == 400
+        resp = auth_refresh(BACKEND_URL, {}, timeout=5)
+        assert_api_error(resp, 400)
 
     def test_refresh_wrong_type(self):
         """RF-15: Неверный тип данных (число вместо строки)."""
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json={"refresh_token": 12345},
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, {"refresh_token": 12345}, timeout=5)
         assert resp.status_code == 400
 
     def test_refresh_not_json(self):
         """RF-16: Тело запроса не в формате JSON."""
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            data="not-json-string",
-            headers={"Content-Type": "text/plain"},
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, headers={"Content-Type": "text/plain"}, data="not-json-string", timeout=5)
         # FastAPI вернёт 400 при невозможности распарсить тело
         assert resp.status_code == 400
 
@@ -180,11 +142,7 @@ class TestAuthRefreshJWTLogic:
     def test_refresh_invalid_jwt_format(self):
         """RF-21: Произвольная строка вместо валидного JWT."""
         payload = {"refresh_token": "not.a.jwt.token"}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code in (400, 401)
 
     def test_refresh_wrong_signature(self):
@@ -196,11 +154,7 @@ class TestAuthRefreshJWTLogic:
             secret=wrong_secret,
         )
         payload = {"refresh_token": token}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 401
 
     def test_refresh_expired_token(self):
@@ -211,21 +165,13 @@ class TestAuthRefreshJWTLogic:
             ttl_seconds=-10,  # Уже истёк
         )
         payload = {"refresh_token": expired_token}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 401
 
     def test_refresh_access_token_instead_of_refresh(self, logged_in_tokens: Dict[str, Any]):
         """RF-24: Попытка использовать access_token вместо refresh_token."""
         payload = {"refresh_token": logged_in_tokens["access_token"]}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 401
         assert "type" in resp.json()["message"].lower()
 
@@ -240,11 +186,7 @@ class TestAuthRefreshJWTLogic:
         }
         token = jwt.encode(payload_no_sub, SECRET_KEY, algorithm=JWT_ALGORITHM)
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json={"refresh_token": token},
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, {"refresh_token": token}, timeout=5)
         assert resp.status_code == 401
 
     def test_refresh_token_without_jti(self):
@@ -259,11 +201,7 @@ class TestAuthRefreshJWTLogic:
         }
         token = jwt.encode(payload_no_jti, SECRET_KEY, algorithm=JWT_ALGORITHM)
         
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json={"refresh_token": token},
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, {"refresh_token": token}, timeout=5)
         assert resp.status_code == 401
 
     def test_refresh_token_with_empty_sub(self):
@@ -273,11 +211,7 @@ class TestAuthRefreshJWTLogic:
             token_type="refresh",
         )
         payload = {"refresh_token": token}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 401
 
 
@@ -291,11 +225,7 @@ class TestAuthRefreshAudit:
         """RF-31: Успешный рефреш создаёт запись аудита со severity=info."""
         # Выполняем рефреш
         payload = {"refresh_token": logged_in_tokens["refresh_token"]}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 200
         
         # Ищем запись аудита через универсальную функцию
@@ -317,11 +247,7 @@ class TestAuthRefreshAudit:
         """RF-32: Неудачный рефреш (невалидный токен) создаёт запись аудита со severity=warning."""
         # Отправляем заведомо невалидный токен
         payload = {"refresh_token": "invalid.token.format"}
-        resp = requests.post(
-            f"{BACKEND_URL}/auth/refresh",
-            json=payload,
-            timeout=5,
-        )
+        resp = auth_refresh(BACKEND_URL, payload, timeout=5)
         assert resp.status_code == 401
         
         # Ищем запись о неудаче через универсальную функцию

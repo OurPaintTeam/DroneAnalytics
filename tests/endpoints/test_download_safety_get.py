@@ -1,7 +1,6 @@
 """Тесты для GET /log/download/safety — скачивание safety логов в формате CSV."""
-from typing import List, Dict, Any, Optional
+from typing import Dict
 
-import pytest
 import requests
 
 from .conftest import BACKEND_URL

@@ -20,6 +20,74 @@ def filter_rows_by_match(
     return [row for row in rows if value in row.get(field, "")]
 
 
+def auth_login(
+    backend_url: str,
+    credentials: Dict[str, Any],
+    timeout: int = 5,
+) -> requests.Response:
+    """Выполняет POST /auth/login."""
+    return requests.post(
+        f"{backend_url}/auth/login",
+        json=credentials,
+        timeout=timeout,
+    )
+
+
+def auth_refresh(
+    backend_url: str,
+    payload: Optional[Dict[str, Any]] = None,
+    headers: Optional[Dict[str, str]] = None,
+    data: Optional[str] = None,
+    timeout: int = 5,
+) -> requests.Response:
+    """Выполняет POST /auth/refresh."""
+    request_kwargs: Dict[str, Any] = {"timeout": timeout}
+    if headers is not None:
+        request_kwargs["headers"] = headers
+    if data is not None:
+        request_kwargs["data"] = data
+    else:
+        request_kwargs["json"] = payload if payload is not None else {}
+    return requests.post(f"{backend_url}/auth/refresh", **request_kwargs)
+
+
+def auth_logout(
+    backend_url: str,
+    payload: Dict[str, Any],
+    access_token: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 5,
+) -> requests.Response:
+    """Выполняет POST /auth/logout."""
+    request_headers = dict(headers or {})
+    if access_token is not None:
+        request_headers.setdefault("Authorization", f"Bearer {access_token}")
+    return requests.post(
+        f"{backend_url}/auth/logout",
+        json=payload,
+        headers=request_headers or None,
+        timeout=timeout,
+    )
+
+
+def assert_api_error(
+    response: requests.Response,
+    expected_status: int,
+    message_contains: Optional[str] = None,
+    message_exact: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Проверяет стандартный формат ошибки API: code/message."""
+    assert response.status_code == expected_status
+    data = response.json()
+    assert data.get("code") == expected_status
+    assert "message" in data and isinstance(data["message"], str)
+    if message_exact is not None:
+        assert data["message"] == message_exact
+    if message_contains is not None:
+        assert message_contains in data["message"]
+    return data
+
+
 def create_event_payload(
     timestamp: Optional[int] = None,
     service: str = "GCS",

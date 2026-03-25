@@ -7,10 +7,8 @@
 Для надёжности тесты используют уникальные префиксы сообщений и
 проверяют наличие конкретных данных, а не точное общее количество.
 """
-import uuid
-from typing import Dict, Any, List, Optional
+from typing import Dict
 
-import pytest
 import requests
 
 from .conftest import BACKEND_URL

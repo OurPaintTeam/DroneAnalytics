@@ -11,7 +11,7 @@
 import time
 import pytest
 import requests
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from .conftest import BACKEND_URL
 from .utils import wait_for_elastic_sync, get_timestamp_ms, ELASTIC_URL
@@ -33,7 +33,6 @@ def verify_doc_in_index(
     Для text-полей использует match-запрос с оператором AND.
     Для keyword/numeric — term-запрос.
     """
-    import time
     start = time.time()
     
     must_clauses = []
@@ -257,7 +256,7 @@ class TestEventSuccess:
             timeout=10
         )
         
-        data = assert_response_structure(resp, expected_status=200, expected_accepted=2)
+        assert_response_structure(resp, expected_status=200, expected_accepted=2)
         
         wait_for_elastic_sync()
         
@@ -577,7 +576,7 @@ class TestEventPartialSuccess:
             timeout=10
         )
         
-        data = assert_response_structure(
+        assert_response_structure(
             resp,
             expected_status=207,
             expected_accepted=0,
