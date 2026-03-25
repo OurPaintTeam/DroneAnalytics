@@ -361,6 +361,7 @@ def get_recent_audit_log(
             
     except requests.RequestException as e:
         pytest.skip(f"ElasticSearch unavailable for audit check: {e}")
+        return None
 
 def clean_index(index_name: str) -> bool:
     """Удаляет все документы из индекса, не удаляя сам индекс (сохраняет маппинг)."""
