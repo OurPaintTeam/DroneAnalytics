@@ -2,7 +2,7 @@ import {useEffect, useState} from "react"
 import {useNavigate} from "react-router-dom"
 
 import {BACKEND_URL} from "../config"
-import LogPanel from "../components/LogPanel"
+import LogPanel, { downloadLogs } from "../components/LogPanel"
 import {checkAuth} from "../components/TokenCheck"
 
 interface TelemetryLog {
@@ -44,16 +44,6 @@ export default function TelemetryLogPage() {
         init()
     }, [navigate])
 
-    const downloadLogs = () => {
-        const blob = new Blob([logs.join("\n")], {type: "text/plain"})
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `telemetry_logs_${new Date().toISOString()}.txt`
-        a.click()
-        URL.revokeObjectURL(url)
-    }
-
     return (
         <LogPanel<TelemetryLog>
             title="Телеметрия"
@@ -73,7 +63,7 @@ export default function TelemetryLogPage() {
                 {key: "latitude", label: "Latitude"},
                 {key: "longitude", label: "Longitude"},
             ]}
-            onDownload={downloadLogs}
+            onDownload={(from, to) => downloadLogs("/log/download/telemetry", from, to)}
         />
     )
 }
