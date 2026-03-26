@@ -1,9 +1,16 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 
-def register_exception_handlers(app: FastAPI) -> None:
+def auth_error(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"code": 401, "message": message},
+    )
+
+
+def register_exception_handlers(app) -> None:
     @app.exception_handler(HTTPException)
     async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
         detail = exc.detail

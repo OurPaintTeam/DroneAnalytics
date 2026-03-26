@@ -1,5 +1,3 @@
-*.crt
-*.key
 uv.lock
 .idea
 # Byte-compiled / optimized / DLL files
