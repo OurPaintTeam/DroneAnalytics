@@ -11,7 +11,7 @@ secrets:
 		-out secrets/proxy.crt \
 		-subj "/CN=localhost"
 	touch ./secrets/backend.yaml
-	printf "secret_key: \"replace-with-a-long-random-string\"\napi_keys: ["change-me-api-key"]\nusers:\n  user: \"" > ./secrets/backend.yaml
+	printf "secret_key: \"replace-with-a-long-random-string\"\napi_keys: [\"change-me-api-key\"]\nusers:\n  user: \"" > ./secrets/backend.yaml
 	(python3 tools/make_hash.py password) >> ./secrets/backend.yaml
 	echo "\"" >> ./secrets/backend.yaml
 
