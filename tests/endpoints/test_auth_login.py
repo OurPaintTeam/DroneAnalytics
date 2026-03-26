@@ -1,11 +1,19 @@
 import time
+import jwt
 import pytest
 import requests
-from typing import Dict
+from typing import Dict, Any
 
 from .utils import auth_login, assert_api_error, get_recent_audit_log
 
-from .conftest import BACKEND_URL
+from .conftest import (
+    BACKEND_URL,
+    SECRET_KEY,
+    JWT_ALGORITHM,
+    ACCESS_TTL_SECONDS,
+    REFRESH_TTL_SECONDS,
+    JWT_REQUIRED_CLAIMS,
+)
 
 
 # ============================================================================
@@ -44,6 +52,57 @@ class TestLoginSuccess:
         assert data["token_type"] == "Bearer"
         assert isinstance(data["expires_in"], int)
         assert data["expires_in"] > 0
+    
+    def test_auth_003_access_token_claims_and_signature(self, auth_credentials: Dict[str, str]):
+        """AUTH-003: access_token содержит ожидаемые claims после успешного логина."""
+        resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
+        assert resp.status_code == 200
+        access_token = resp.json()["access_token"]
+
+        payload: Dict[str, Any] = jwt.decode(
+            access_token,
+            options={"verify_signature": False},
+        )
+        assert {"exp", "iat", "sub", "type", "jti"}.issubset(payload.keys())
+        assert payload["sub"] == auth_credentials["username"]
+        assert payload["type"] == "access"
+
+    def test_auth_004_refresh_token_claims_and_signature(self, auth_credentials: Dict[str, str]):
+        """AUTH-004: refresh_token содержит ожидаемые claims после успешного логина."""
+        resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
+        assert resp.status_code == 200
+        refresh_token = resp.json()["refresh_token"]
+
+        payload: Dict[str, Any] = jwt.decode(
+            refresh_token,
+            options={"verify_signature": False},
+        )
+        assert {"exp", "iat", "sub", "type", "jti"}.issubset(payload.keys())
+        assert payload["sub"] == auth_credentials["username"]
+        assert payload["type"] == "refresh"
+
+    def test_auth_005_token_ttl_matches_env(self, auth_credentials: Dict[str, str]):
+        """AUTH-005: TTL access/refresh приблизительно совпадает с конфигурацией backend."""
+        resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
+        assert resp.status_code == 200
+        data = resp.json()
+
+        access_payload = jwt.decode(
+            data["access_token"],
+            options={"verify_signature": False},
+        )
+        refresh_payload = jwt.decode(
+            data["refresh_token"],
+            options={"verify_signature": False},
+        )
+
+        access_ttl = int(access_payload["exp"]) - int(access_payload["iat"])
+        refresh_ttl = int(refresh_payload["exp"]) - int(refresh_payload["iat"])
+
+        # Допускаем дрейф времени в 2 секунды.
+        assert abs(access_ttl - ACCESS_TTL_SECONDS) <= 2
+        assert abs(refresh_ttl - REFRESH_TTL_SECONDS) <= 2
+        assert data["expires_in"] == ACCESS_TTL_SECONDS
 
 
 # ============================================================================

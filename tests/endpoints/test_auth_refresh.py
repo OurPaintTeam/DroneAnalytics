@@ -230,7 +230,7 @@ class TestAuthRefreshAudit:
         
         # Ищем запись аудита через универсальную функцию
         audit_log = get_recent_audit_log(
-            expected_substring="action=token_refresh",
+            expected_substring="action=auth_refresh",
             severity="info",
             index_name="safety"
         )
@@ -239,7 +239,7 @@ class TestAuthRefreshAudit:
         assert audit_log is not None, "Audit log not found in ElasticSearch"
         
         # Проверяем содержание записи
-        assert "action=token_refresh" in audit_log["message"]
+        assert "action=auth_refresh" in audit_log["message"]
         assert "status=success" in audit_log["message"]
         assert f"subject={auth_credentials['username']}" in audit_log["message"]
 
@@ -252,7 +252,7 @@ class TestAuthRefreshAudit:
         
         # Ищем запись о неудаче через универсальную функцию
         audit_log = get_recent_audit_log(
-            expected_substring="action=token_refresh",
+            expected_substring="action=auth_refresh",
             severity="warning",
             index_name="safety"
         )
@@ -261,6 +261,6 @@ class TestAuthRefreshAudit:
         assert audit_log is not None, "Audit failure log not found"
         
         # Проверяем содержание записи
-        assert "action=token_refresh" in audit_log["message"]
+        assert "action=auth_refresh" in audit_log["message"]
         assert "status=failure" in audit_log["message"]
         assert "reason=" in audit_log["message"]
