@@ -1,6 +1,8 @@
-import {useEffect, useRef} from "react"
+import * as React from "react"
+import {useEffect, useRef, useState} from "react"
 import {RED} from "../config.ts"
-import * as React from "react";
+import {BACKEND_URL} from "../config"
+import MUIRangePicker from "./DateRangePicker.tsx"
 
 export interface Column<T> {
     key: keyof T
@@ -12,15 +14,74 @@ export interface LogPanelProps<T> {
     title: string
     logs: T[]
     columns?: Column<T>[]
-    onDownload?: () => void
+    onDownload?: (from: Date | null, to: Date | null) => void
+}
+
+export const downloadLogs = async (
+    urlPath: string,
+    fromDate: Date | null,
+    toDate: Date | null
+) => {
+    try {
+        const access = localStorage.getItem("access_token")
+        if (!access) {
+            console.error("❌ access token")
+            return
+        }
+
+        const params = new URLSearchParams()
+        if (fromDate) params.append("from_ts", String(fromDate.getTime()))
+        if (toDate) params.append("to_ts", String(toDate.getTime()))
+
+        const url = `${BACKEND_URL}${urlPath}${params.toString() ? `?${params.toString()}` : ""}`
+
+        const res = await fetch(url, {
+            method: "GET",
+            headers: {Authorization: `Bearer ${access}`},
+        })
+
+        if (!res.ok) {
+            const text = await res.text()
+            console.error("❌ Server response:", text)
+            throw new Error("Failed to download logs")
+        }
+
+        const blob = await res.blob()
+        const downloadUrl = URL.createObjectURL(blob)
+
+        const a = document.createElement("a")
+        a.href = downloadUrl
+        const contentDisposition = res.headers.get("Content-Disposition")
+        let filename = "file.csv"
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?(.+?)"?$/)
+            if (match?.[1]) filename = match[1]
+        }
+        a.download = filename
+        a.click()
+
+        URL.revokeObjectURL(downloadUrl)
+    } catch (err) {
+        console.error("❌ Download failed:", err)
+    }
 }
 
 export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanelProps<T>) {
     const logsEndRef = useRef<HTMLDivElement>(null)
 
+    const [showPicker, setShowPicker] = useState(false)
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null])
+    const [startDate, endDate] = dateRange
+
+
     useEffect(() => {
         logsEndRef.current?.scrollIntoView({behavior: "smooth"})
     }, [logs])
+
+    const handleDownload = () => {
+        if (!onDownload) return
+        onDownload(startDate, endDate)
+    }
 
     return (
         <div
@@ -32,17 +93,47 @@ export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanel
 
                 {/* header */}
                 <div
-                    className="px-6 py-2 flex justify-between items-center border-b text-sm font-semibold text-gray-600">
+                    className="px-6 py-2 flex justify-between items-center border-b text-sm font-semibold text-gray-600 relative">
                     <span>{title}</span>
 
                     {onDownload && (
-                        <button
-                            onClick={onDownload}
-                            className="px-4 py-1.5 rounded-md text-sm font-medium text-white shadow-sm"
-                            style={{background: RED}}
-                        >
-                            Скачать логи
-                        </button>
+                        <div className="flex items-center gap-2 relative">
+                            <button
+                                onClick={() => setShowPicker(prev => !prev)}
+                                className="px-3 py-1.5 rounded-md text-sm text-white transition-transform duration-150 ease-in-out
+                   hover:scale-105 hover:bg-gray-600 active:scale-95"
+                                style={{background: "#e6e6e6"}}
+                            >
+                                📅
+                            </button>
+
+                            <button
+                                onClick={handleDownload}
+                                className="px-4 py-1.5 rounded-md text-sm font-medium text-white shadow-sm
+                   transition-transform duration-150 ease-in-out
+                   hover:scale-105 hover:brightness-110 active:scale-95"
+                                style={{background: RED}}
+                            >
+                                Скачать
+                            </button>
+
+                            {showPicker && (
+                                <div
+                                    className="absolute top-full mt-2"
+                                    style={{
+                                        minWidth: "350px",
+                                        left: "40%",
+                                        transform: "translateX(calc(-40% - 110px))"
+                                    }}
+                                >
+                                    <MUIRangePicker
+                                        from={startDate}
+                                        to={endDate}
+                                        onChange={(from, to) => setDateRange([from, to])}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
 
