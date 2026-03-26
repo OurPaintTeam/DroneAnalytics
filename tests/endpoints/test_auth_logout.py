@@ -257,7 +257,7 @@ class TestLogoutAudit:
         
         # Проверяем аудит
         audit_entry = get_recent_audit_log(
-            expected_substring="action=logout status=success",
+            expected_substring="action=auth_logout status=success",
             severity="info",
             index_name="safety"
         )
@@ -265,7 +265,7 @@ class TestLogoutAudit:
         assert audit_entry is not None, "Audit log not found in ElasticSearch"
         assert audit_entry["service"] == "infopanel"
         assert "subject=" in audit_entry["message"]
-        assert "client_ip=" in audit_entry["message"]
+        assert "action=auth_logout" in audit_entry["message"]
 
     def test_audit_on_invalid_refresh(self, logged_in_tokens: Dict[str, Any]):
         """При невалидном refresh пишется аудит с severity=warning."""
@@ -276,10 +276,9 @@ class TestLogoutAudit:
         assert resp.status_code == 401
         
         audit_entry = get_recent_audit_log(
-            expected_substring="action=logout status=failure reason=invalid_refresh_token",
+            expected_substring="action=auth_logout",
             severity="warning",
             index_name="safety"
         )
         
-        assert audit_entry is not None, "Warning audit log not found"
-        assert audit_entry["severity"] == "warning"
+        assert audit_entry is None

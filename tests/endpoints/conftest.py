@@ -5,13 +5,25 @@ import requests
 import secrets
 from typing import Generator, Dict, Any
 
-from .utils import clean_all_indices, elastic_health_check
+
+from .utils import clean_all_indices, elastic_health_check, auth_login
+
+
+def _require_env(var_name: str) -> str:
+    """Читает обязательную переменную окружения и валидирует, что она не пустая."""
+    value = os.getenv(var_name)
+    if value is None or not value.strip():
+        raise RuntimeError(
+            f"Required environment variable {var_name} is not set. "
+            "Set it in pytest.ini or CI env to match backend secrets/backend.yaml."
+        )
+    return value
 
 # Конфигурация из переменных окружения
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8080")
 API_KEY = os.getenv("DRONE_API_KEY", "change-me-api-key")
-AUTH_USERNAME = os.getenv("AUTH_USERNAME", "user")
-AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "password")
+AUTH_USERNAME = _require_env("AUTH_USERNAME")
+AUTH_PASSWORD = _require_env("AUTH_PASSWORD")
 SECRET_KEY = os.getenv("DRONE_SECRET_KEY", secrets.token_urlsafe(48)).encode("utf-8")
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
@@ -37,6 +49,51 @@ def clean_elastic_after_test() -> Generator[None, None, None]:
     """
     yield  # Выполняем тест
     clean_all_indices()  # Очищаем после теста
+
+@pytest.fixture(scope="session", autouse=True)
+def verify_auth_seed_credentials() -> None:
+    """
+    Проверяет, что тестовые креды действительно соответствуют users в backend secrets.
+
+    Зачем:
+    - backend больше не читает логин/пароль из env;
+    - тесты должны явно подтвердить, что AUTH_USERNAME/AUTH_PASSWORD синхронизированы
+      с текущим secrets/backend.yaml backend-сервиса.
+    """
+    try:
+        ok_resp = auth_login(
+            BACKEND_URL,
+            {"username": AUTH_USERNAME, "password": AUTH_PASSWORD},
+            timeout=5,
+        )
+    except requests.RequestException as exc:
+        pytest.skip(f"Cannot validate auth credentials in current environment: {exc}")
+
+    if ok_resp.status_code in {403, 404, 502, 503, 504}:
+        pytest.skip(
+            "Cannot validate auth credentials in current environment "
+            f"(BACKEND_URL={BACKEND_URL}, status={ok_resp.status_code})."
+        )
+
+    if ok_resp.status_code != 200:
+        pytest.fail(
+            "Configured AUTH_USERNAME/AUTH_PASSWORD are not accepted by backend. "
+            f"Got {ok_resp.status_code}: {ok_resp.text}"
+        )
+
+    wrong_resp = auth_login(
+        BACKEND_URL,
+        {
+            "username": f"{AUTH_USERNAME}_definitely_wrong",
+            "password": f"{AUTH_PASSWORD}_definitely_wrong",
+        },
+        timeout=5,
+    )
+    if wrong_resp.status_code != 401:
+        pytest.fail(
+            "Backend unexpectedly accepted obviously invalid credentials. "
+            f"Got {wrong_resp.status_code}: {wrong_resp.text}"
+        )
 
 
 @pytest.fixture
