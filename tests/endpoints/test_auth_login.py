@@ -8,7 +8,6 @@ from .utils import auth_login, assert_api_error, get_recent_audit_log
 
 from .conftest import (
     BACKEND_URL,
-    SECRET_KEY,
     JWT_ALGORITHM,
     ACCESS_TTL_SECONDS,
     REFRESH_TTL_SECONDS,
