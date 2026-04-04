@@ -68,6 +68,7 @@ export const downloadLogs = async (
 
 export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanelProps<T>) {
     const logsEndRef = useRef<HTMLDivElement>(null)
+    const safeLogs = Array.isArray(logs) ? logs : []
 
     const [showPicker, setShowPicker] = useState(false)
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null])
@@ -76,7 +77,7 @@ export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanel
 
     useEffect(() => {
         logsEndRef.current?.scrollIntoView({behavior: "smooth"})
-    }, [logs])
+    }, [safeLogs])
 
     const handleDownload = () => {
         if (!onDownload) return
@@ -151,7 +152,7 @@ export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanel
                             </tr>
                             </thead>
                             <tbody>
-                            {logs.map((log, i) => (
+                            {safeLogs.map((log, i) => (
                                 <tr key={i} className="hover:bg-gray-50">
                                     {columns.map(col => (
                                         <td key={String(col.key)} className="px-2 py-1 border-l-2"
@@ -165,7 +166,7 @@ export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanel
                         </table>
                     ) : (
 
-                        logs.map((log, i) => (
+                        safeLogs.map((log, i) => (
                             <div key={i} className="pl-3 border-l-2" style={{borderColor: RED}}>
                                 {String(log)}
                             </div>

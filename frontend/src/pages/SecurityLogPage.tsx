@@ -30,7 +30,11 @@ export default function SecurityLogPage() {
                 const res = await fetch(`${BACKEND_URL}/log/safety`, {
                     headers: {Authorization: `Bearer ${access}`}
                 })
-                const data: SecurityLog[] = await res.json()
+                const data: unknown = await res.json()
+                if (!res.ok || !Array.isArray(data)) {
+                    setLogs([])
+                    return
+                }
                 setLogs(data)
             } catch {
                 console.error("❌ Ошибка подключения")
