@@ -30,7 +30,11 @@ export default function EventLogPage() {
                 const res = await fetch(`${BACKEND_URL}/log/event`, {
                     headers: {Authorization: `Bearer ${access}`}
                 })
-                const data: EventLog[] = await res.json()
+                const data: unknown = await res.json()
+                if (!res.ok || !Array.isArray(data)) {
+                    setLogs([])
+                    return
+                }
                 setLogs(data)
             } catch {
                 console.error("❌ Ошибка подключения")
