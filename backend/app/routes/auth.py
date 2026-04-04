@@ -84,11 +84,17 @@ def auth_refresh(
 
 @router.post("/logout")
 def auth_logout(
-    payload: RefreshTokenRequest,
+    request: Request,
     response: Response,
+    payload: RefreshTokenRequest | None = Body(default=None),
     bearer_payload: dict[str, Any] = Depends(require_bearer_payload),
 ):
-    refresh_subject = consume_refresh_token(payload.refresh_token)
+    refresh_token = payload.refresh_token if payload is not None else request.cookies.get("refresh_token")
+    if not refresh_token:
+        audit_safety("warning", "action=auth_logout status=failure reason=missing_refresh_token")
+        raise auth_error("Missing refresh token")
+
+    refresh_subject = consume_refresh_token(refresh_token)
     access_subject = str(bearer_payload.get("sub", "")).strip()
 
     if refresh_subject != access_subject:
