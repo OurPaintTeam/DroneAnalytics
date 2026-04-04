@@ -41,24 +41,20 @@ function TopBarLayout() {
 
     const handleLogout = async () => {
         const access = localStorage.getItem("access_token")
-        const refresh = localStorage.getItem("refresh_token")
         try {
-            if (access && refresh) {
+            if (access) {
                 await fetch(`${BACKEND_URL}/auth/logout`, {
                     method: "POST",
                     credentials: "include",
                     headers: {
-                        "Content-Type": "application/json",
                         Authorization: `Bearer ${access}`,
                     },
-                    body: JSON.stringify({ refresh_token: refresh }),
                 })
             }
         } catch {
             /* network errors: still clear client session */
         } finally {
             localStorage.removeItem("access_token")
-            localStorage.removeItem("refresh_token")
             navigate("/login")
         }
     }
