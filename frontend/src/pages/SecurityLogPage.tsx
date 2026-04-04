@@ -2,7 +2,7 @@ import {useEffect, useState} from "react"
 import {useNavigate} from "react-router-dom"
 
 import {BACKEND_URL} from "../config"
-import LogPanel from "../components/LogPanel"
+import LogPanel, {downloadLogs} from "../components/LogPanel"
 import {checkAuth} from "../components/TokenCheck"
 
 interface SecurityLog {
@@ -40,16 +40,6 @@ export default function SecurityLogPage() {
         init()
     }, [navigate])
 
-    const downloadLogs = () => {
-        const blob = new Blob([logs.join("\n")], {type: "text/plain"})
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `security_logs_${new Date().toISOString()}.txt`
-        a.click()
-        URL.revokeObjectURL(url)
-    }
-
     return (
         <LogPanel<SecurityLog>
             title="Журнал безопасности"
@@ -65,7 +55,7 @@ export default function SecurityLogPage() {
                 {key: "severity", label: "Severity"},
                 {key: "message", label: "Message"},
             ]}
-            onDownload={downloadLogs}
+            onDownload={(from, to) => downloadLogs("/log/download/safety", from, to)}
         />
     )
 }
