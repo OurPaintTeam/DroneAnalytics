@@ -40,9 +40,8 @@ function LoginPage() {
                 throw new Error(messages.join(", ") || "Ошибка авторизации")
             }
 
-            const {access_token, refresh_token} = data
+            const {access_token} = data
             localStorage.setItem("access_token", access_token)
-            localStorage.setItem("refresh_token", refresh_token)
             navigate("/event")
         } catch (err: any) {
             setError(err.message || "Ошибка соединения с сервером")
