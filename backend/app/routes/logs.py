@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.audit import AUDIT_SERVICE, audit_event
 from app.dependencies import require_api_key, require_bearer_payload
 from app.models import BasicLogItem, EventLogItem, TelemetryLogItem, TelemetryLogResponse, EventLogResponse
+from app.log_search import build_log_list_query, validate_timestamp_range
 from app.config import ELASTIC_URL
 from pydantic import ValidationError
 
@@ -109,18 +110,31 @@ def _partial_or_ok_response(total: int, accepted: int, errors: list[dict]) -> JS
     return JSONResponse(status_code=status_code, content=body)
 
 
-def _get_logs_from_index(index: str, start: int, size: int, exclude_service: str | None = None):
+def _get_logs_from_index(
+    index: str,
+    start: int,
+    size: int,
+    *,
+    exclude_service: str | None = None,
+    from_ts: int | None = None,
+    to_ts: int | None = None,
+    term_filters: dict[str, str | int] | None = None,
+    message_match: str | None = None,
+):
     query_body: dict = {
         "from": start,
         "size": size,
         "sort": [{"timestamp": {"order": "desc"}}],
     }
-    if exclude_service:
-        query_body["query"] = {
-            "bool": {
-                "must_not": [{"term": {"service": exclude_service}}]
-            }
-        }
+    q = build_log_list_query(
+        exclude_service=exclude_service,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        term_filters=term_filters,
+        message_match=message_match,
+    )
+    if q is not None:
+        query_body["query"] = q
 
     try:
         resp = requests.post(
