@@ -624,10 +624,31 @@ def get_event(
 def get_safety(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: dict = Depends(require_bearer_payload)
+    from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
+    to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
+    service: LogServiceType | None = Query(None),
+    service_id: int | None = Query(None, ge=1),
+    severity: LogSeverityType | None = Query(None),
+    _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    term_filters: dict[str, str | int] = {}
+    if service is not None:
+        term_filters["service"] = service
+    if service_id is not None:
+        term_filters["service_id"] = service_id
+    if severity is not None:
+        term_filters["severity"] = severity
     start = (page - 1) * limit
-    return _get_logs_from_index("safety", start, limit, exclude_service=AUDIT_SERVICE)
+    return _get_logs_from_index(
+        "safety",
+        start,
+        limit,
+        exclude_service=AUDIT_SERVICE,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        term_filters=term_filters if term_filters else None,
+    )
 
 
 @router.get("/download/basic", summary="Download basic logs as CSV (by timestamp range)")
