@@ -24,4 +24,7 @@ def register_exception_handlers(app) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
-        return JSONResponse(status_code=400, content={"code": 400, "message": str(exc.errors())})
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"code": status.HTTP_400_BAD_REQUEST, "message": str(exc.errors())},
+        )
