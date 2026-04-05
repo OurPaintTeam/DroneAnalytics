@@ -3,7 +3,14 @@ from fastapi.responses import JSONResponse
 
 from app.audit import AUDIT_SERVICE, audit_event
 from app.dependencies import require_api_key, require_bearer_payload
-from app.models import BasicLogItem, EventLogItem, TelemetryLogItem, TelemetryLogResponse, EventLogResponse
+from app.models import (
+    BasicLogItem,
+    EventLogItem,
+    EventLogResponse,
+    LogDroneType,
+    TelemetryLogItem,
+    TelemetryLogResponse,
+)
 from app.log_search import build_log_list_query, validate_timestamp_range
 from app.config import ELASTIC_URL
 from pydantic import ValidationError
@@ -547,10 +554,27 @@ def get_basic(
 def get_telemetry(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: dict = Depends(require_bearer_payload)
+    from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
+    to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
+    drone: LogDroneType | None = Query(None),
+    drone_id: int | None = Query(None, ge=1),
+    _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    term_filters: dict[str, str | int] = {}
+    if drone is not None:
+        term_filters["drone"] = drone
+    if drone_id is not None:
+        term_filters["drone_id"] = drone_id
     start = (page - 1) * limit
-    return _get_logs_from_index("telemetry", start, limit)
+    return _get_logs_from_index(
+        "telemetry",
+        start,
+        limit,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        term_filters=term_filters if term_filters else None,
+    )
 
 
 @router.get(
