@@ -518,10 +518,24 @@ def ingest_event(
 def get_basic(
     limit: int = Query(10, ge=1, le=100),
     page: int = Query(1, ge=1),
-    _: dict = Depends(require_bearer_payload)
+    from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
+    to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
+    message: str | None = Query(None, max_length=512, description="Полнотекстовый поиск по полю message"),
+    _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    message_match = message.strip() if message else None
+    if message_match == "":
+        message_match = None
     start = (page - 1) * limit
-    return _get_logs_from_index("basic", start, limit)
+    return _get_logs_from_index(
+        "basic",
+        start,
+        limit,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        message_match=message_match,
+    )
 
 
 @router.get(
