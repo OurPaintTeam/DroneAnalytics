@@ -14,6 +14,8 @@ export interface LogPanelProps<T> {
     title: string
     logs: T[]
     columns?: Column<T>[]
+    /** Опциональная панель фильтров (только список; скачивание CSV — по календарю выше). */
+    filters?: React.ReactNode
     onDownload?: (from: Date | null, to: Date | null) => void
 }
 
@@ -66,7 +68,7 @@ export const downloadLogs = async (
     }
 }
 
-export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanelProps<T>) {
+export default function LogPanel<T>({title, logs, columns, filters, onDownload}: LogPanelProps<T>) {
     const logsEndRef = useRef<HTMLDivElement>(null)
     const safeLogs = Array.isArray(logs) ? logs : []
 
@@ -137,6 +139,10 @@ export default function LogPanel<T>({title, logs, columns, onDownload}: LogPanel
                         </div>
                     )}
                 </div>
+
+                {filters ? (
+                    <div className="border-b border-gray-100/90 bg-slate-50/40 px-6 py-3">{filters}</div>
+                ) : null}
 
                 {/* logs / table */}
                 <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2 font-mono text-sm text-gray-600">

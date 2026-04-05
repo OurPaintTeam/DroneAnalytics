@@ -1,8 +1,9 @@
 import {useEffect, useState} from "react"
 import {useNavigate} from "react-router-dom"
 
-import {BACKEND_URL} from "../config"
-import LogPanel, { downloadLogs } from "../components/LogPanel"
+import {fetchLogJsonArray} from "../api/fetchLogs"
+import EventSafetyLogFilters from "../components/EventSafetyLogFilters"
+import LogPanel, {downloadLogs} from "../components/LogPanel"
 import {checkAuth} from "../components/TokenCheck"
 
 interface EventLog {
@@ -15,44 +16,40 @@ interface EventLog {
 
 export default function EventLogPage() {
     const [logs, setLogs] = useState<EventLog[]>([])
+    const [searchParams, setSearchParams] = useState(() => new URLSearchParams())
     const navigate = useNavigate()
 
     useEffect(() => {
-        const init = async () => {
+        let cancelled = false
+        const run = async () => {
             const authorized = await checkAuth()
             if (!authorized) {
                 navigate("/login")
                 return
             }
-
             try {
-                const access = localStorage.getItem("access_token")
-                const res = await fetch(`${BACKEND_URL}/log/event`, {
-                    headers: {Authorization: `Bearer ${access}`}
-                })
-                const data: unknown = await res.json()
-                if (!res.ok || !Array.isArray(data)) {
-                    setLogs([])
-                    return
-                }
-                setLogs(data)
+                const data = await fetchLogJsonArray("/log/event", searchParams)
+                if (!cancelled) setLogs(data as EventLog[])
             } catch {
-                console.error("❌ Ошибка подключения")
+                if (!cancelled) console.error("Ошибка загрузки журнала")
             }
         }
-
-        init()
-    }, [navigate])
+        void run()
+        return () => {
+            cancelled = true
+        }
+    }, [navigate, searchParams])
 
     return (
         <LogPanel<EventLog>
             title="Журнал событий"
             logs={logs}
+            filters={<EventSafetyLogFilters onApply={setSearchParams} />}
             columns={[
                 {
                     key: "timestamp",
                     label: "Time",
-                    render: (v: number) => new Date(v).toLocaleString()
+                    render: (v: number) => new Date(v).toLocaleString(),
                 },
                 {key: "service", label: "Service"},
                 {key: "service_id", label: "ID"},
