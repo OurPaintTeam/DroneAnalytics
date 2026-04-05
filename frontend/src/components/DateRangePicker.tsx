@@ -9,21 +9,38 @@ interface Props {
     from: Date | null;
     to: Date | null;
     onChange: (from: Date | null, to: Date | null) => void;
+    /** panel — для выгрузки CSV; inline — компактно в строке фильтров */
+    variant?: "panel" | "inline";
 }
 
-export default function MUIRangePicker({ from, to, onChange }: Props) {
+export default function MUIRangePicker({ from, to, onChange, variant = "panel" }: Props) {
+    const isInline = variant === "inline";
+    const fieldSx = isInline
+        ? { bgcolor: "white", borderRadius: 1, "& .MuiInputBase-input": { py: 0.75 } }
+        : { bgcolor: "white", borderRadius: 1 };
+
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
             <Box
-                sx={{
-                    bgcolor: "#f3f4f6",
-                    p: 3,
-                    borderRadius: 2,
-                    display: "inline-block",
-                    boxShadow: 3,
-                }}
+                sx={
+                    isInline
+                        ? {
+                              display: "block",
+                              p: 0,
+                              m: 0,
+                              boxShadow: "none",
+                              bgcolor: "transparent",
+                          }
+                        : {
+                              bgcolor: "#f3f4f6",
+                              p: 3,
+                              borderRadius: 2,
+                              display: "inline-block",
+                              boxShadow: 3,
+                          }
+                }
             >
-                <Stack spacing={2}>
+                <Stack spacing={isInline ? 1.5 : 2} direction={isInline ? { xs: "column", sm: "row" } : "column"}>
                     <DateTimePicker
                         label="Начало"
                         value={from ? dayjs(from) : null}
@@ -41,7 +58,8 @@ export default function MUIRangePicker({ from, to, onChange }: Props) {
                         slotProps={{
                             textField: {
                                 fullWidth: true,
-                                sx: { bgcolor: "white", borderRadius: 1 },
+                                size: isInline ? "small" : "medium",
+                                sx: fieldSx,
                                 placeholder: "DD.MM.YYYY HH:mm",
                                 InputProps: {
                                     endAdornment: from && (
@@ -76,7 +94,8 @@ export default function MUIRangePicker({ from, to, onChange }: Props) {
                         slotProps={{
                             textField: {
                                 fullWidth: true,
-                                sx: { bgcolor: "white", borderRadius: 1 },
+                                size: isInline ? "small" : "medium",
+                                sx: fieldSx,
                                 placeholder: "DD.MM.YYYY HH:mm",
                                 InputProps: {
                                     endAdornment: to && (

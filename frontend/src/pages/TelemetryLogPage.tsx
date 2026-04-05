@@ -1,8 +1,9 @@
 import {useEffect, useState} from "react"
 import {useNavigate} from "react-router-dom"
 
-import {BACKEND_URL} from "../config"
-import LogPanel, { downloadLogs } from "../components/LogPanel"
+import {fetchLogJsonArray} from "../api/fetchLogs"
+import LogPanel, {downloadLogs} from "../components/LogPanel"
+import TelemetryLogFilters from "../components/TelemetryLogFilters"
 import {checkAuth} from "../components/TokenCheck"
 
 interface TelemetryLog {
@@ -19,44 +20,40 @@ interface TelemetryLog {
 
 export default function TelemetryLogPage() {
     const [logs, setLogs] = useState<TelemetryLog[]>([])
+    const [searchParams, setSearchParams] = useState(() => new URLSearchParams())
     const navigate = useNavigate()
 
     useEffect(() => {
-        const init = async () => {
+        let cancelled = false
+        const run = async () => {
             const authorized = await checkAuth()
             if (!authorized) {
                 navigate("/login")
                 return
             }
-
             try {
-                const access = localStorage.getItem("access_token")
-                const res = await fetch(`${BACKEND_URL}/log/telemetry`, {
-                    headers: {Authorization: `Bearer ${access}`}
-                })
-                const data: unknown = await res.json()
-                if (!res.ok || !Array.isArray(data)) {
-                    setLogs([])
-                    return
-                }
-                setLogs(data)
+                const data = await fetchLogJsonArray("/log/telemetry", searchParams)
+                if (!cancelled) setLogs(data as TelemetryLog[])
             } catch {
-                console.error("❌ Ошибка подключения")
+                if (!cancelled) console.error("Ошибка загрузки журнала")
             }
         }
-
-        init()
-    }, [navigate])
+        void run()
+        return () => {
+            cancelled = true
+        }
+    }, [navigate, searchParams])
 
     return (
         <LogPanel<TelemetryLog>
             title="Телеметрия"
             logs={logs}
+            filters={<TelemetryLogFilters onApply={setSearchParams} />}
             columns={[
                 {
                     key: "timestamp",
                     label: "Time",
-                    render: (v: number) => new Date(v).toLocaleString()
+                    render: (v: number) => new Date(v).toLocaleString(),
                 },
                 {key: "drone", label: "Drone"},
                 {key: "drone_id", label: "ID"},
