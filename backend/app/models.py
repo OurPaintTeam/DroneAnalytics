@@ -2,6 +2,37 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+LogDroneType = Literal["delivery", "queen", "inspector", "agriculture"]
+
+LogServiceType = Literal[
+    "delivery",
+    "queen",
+    "inspector",
+    "agriculture",
+    "GCS",
+    "aggregator",
+    "insurance",
+    "regulator",
+    "dronePort",
+    "OrAT_drones",
+    "operator",
+    "SITL",
+    "Gazebo",
+    "infopanel",
+    "registry",
+]
+
+LogSeverityType = Literal[
+    "debug",
+    "info",
+    "notice",
+    "warning",
+    "error",
+    "critical",
+    "alert",
+    "emergency",
+]
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -31,7 +62,7 @@ class BasicLogItem(StrictModel):
 class TelemetryLogItem(StrictModel):
     apiVersion: str = Field(min_length=5, max_length=8)
     timestamp: int = Field(ge=0)
-    drone: Literal["delivery", "queen", "inspector", "agriculture"]
+    drone: LogDroneType
     drone_id: int = Field(ge=1)
     battery: int | None = Field(default=None, ge=0, le=100)
     pitch: float | None = Field(default=None, ge=-90, le=90)
@@ -45,31 +76,15 @@ class EventLogItem(StrictModel):
     apiVersion: str = Field(min_length=5, max_length=8)
     timestamp: int = Field(ge=0)
     event_type: Literal["event", "safety_event"] | None = None
-    service: Literal[
-        "delivery",
-        "queen",
-        "inspector",
-        "agriculture",
-        "GCS",
-        "aggregator",
-        "insurance",
-        "regulator",
-        "dronePort",
-        "OrAT_drones",
-        "operator",
-        "SITL",
-        "Gazebo",
-        "infopanel",
-        "registry",
-    ]
+    service: LogServiceType
     service_id: int = Field(ge=1)
-    severity: Literal["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"] | None = None
+    severity: LogSeverityType | None = None
     message: str = Field(min_length=1, max_length=1024)
 
 
 class TelemetryLogResponse(StrictModel):
     timestamp: int = Field(ge=0)
-    drone: Literal["delivery", "queen", "inspector", "agriculture"]
+    drone: LogDroneType
     drone_id: int = Field(ge=1)
     battery: int | None = Field(default=None, ge=0, le=100)
     pitch: float | None = Field(default=None, ge=-90, le=90)
@@ -81,32 +96,7 @@ class TelemetryLogResponse(StrictModel):
 
 class EventLogResponse(StrictModel):
     timestamp: int = Field(ge=0)
-    service: Literal[
-        "delivery",
-        "queen",
-        "inspector",
-        "agriculture",
-        "GCS",
-        "aggregator",
-        "insurance",
-        "regulator",
-        "dronePort",
-        "OrAT_drones",
-        "operator",
-        "SITL",
-        "Gazebo",
-        "infopanel",
-        "registry",
-    ]
+    service: LogServiceType
     service_id: int = Field(ge=1)
-    severity: Literal[
-        "debug",
-        "info",
-        "notice",
-        "warning",
-        "error",
-        "critical",
-        "alert",
-        "emergency",
-    ] | None = None
+    severity: LogSeverityType | None = None
     message: str = Field(min_length=1, max_length=1024)
