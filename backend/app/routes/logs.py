@@ -726,15 +726,29 @@ def download_telemetry_csv(
 def download_event_csv(
     from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
     to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    service: LogServiceType | None = Query(None),
+    service_id: int | None = Query(None, ge=1),
+    severity: LogSeverityType | None = Query(None),
     _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    term_filters: dict[str, str | int] = {}
+    if service is not None:
+        term_filters["service"] = service
+    if service_id is not None:
+        term_filters["service_id"] = service_id
+    if severity is not None:
+        term_filters["severity"] = severity
+
     fieldnames = ["timestamp", "service", "service_id", "severity", "message"]
 
     rows_iter = _es_scroll_iter(
         "event",
         from_ts,
         to_ts,
-        _source=fieldnames
+        _source=fieldnames,
+        exclude_service=AUDIT_SERVICE,
+        term_filters=term_filters if term_filters else None,
     )
 
     filename = _make_filename("event_logs", from_ts, to_ts)
@@ -753,15 +767,29 @@ def download_event_csv(
 def download_safety_csv(
     from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
     to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    service: LogServiceType | None = Query(None),
+    service_id: int | None = Query(None, ge=1),
+    severity: LogSeverityType | None = Query(None),
     _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    term_filters: dict[str, str | int] = {}
+    if service is not None:
+        term_filters["service"] = service
+    if service_id is not None:
+        term_filters["service_id"] = service_id
+    if severity is not None:
+        term_filters["severity"] = severity
+
     fieldnames = ["timestamp", "service", "service_id", "severity", "message"]
 
     rows_iter = _es_scroll_iter(
         "safety",
         from_ts,
         to_ts,
-        _source=fieldnames
+        _source=fieldnames,
+        exclude_service=AUDIT_SERVICE,
+        term_filters=term_filters if term_filters else None,
     )
 
     filename = _make_filename("safety_logs", from_ts, to_ts)
