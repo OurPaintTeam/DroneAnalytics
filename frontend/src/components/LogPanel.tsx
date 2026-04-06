@@ -73,6 +73,7 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
     const safeLogs = Array.isArray(logs) ? logs : []
 
     const [showPicker, setShowPicker] = useState(false)
+    const [showFilters, setShowFilters] = useState(true)
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null])
     const [startDate, endDate] = dateRange
 
@@ -97,7 +98,25 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
                 {/* header */}
                 <div
                     className="px-6 py-2 flex justify-between items-center border-b text-sm font-semibold text-gray-600 relative">
-                    <span>{title}</span>
+                    <div className="flex items-center gap-3">
+                        <span>{title}</span>
+                        {filters ? (
+                            <button
+                                type="button"
+                                onClick={() => setShowFilters(prev => !prev)}
+                                aria-expanded={showFilters}
+                                className="group inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+                            >
+                                Фильтры
+                                <span
+                                    className={`inline-block text-[10px] leading-none transition-transform duration-300 ${showFilters ? "rotate-180" : ""}`}
+                                    aria-hidden
+                                >
+                                    ▼
+                                </span>
+                            </button>
+                        ) : null}
+                    </div>
 
                     {onDownload && (
                         <div className="flex items-center gap-2 relative">
@@ -141,7 +160,19 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
                 </div>
 
                 {filters ? (
-                    <div className="border-b border-gray-100/90 bg-slate-50/40 px-6 py-3">{filters}</div>
+                    <div
+                        className={`overflow-hidden border-b border-gray-100/90 bg-white transition-all duration-300 ease-out ${
+                            showFilters ? "max-h-[420px] opacity-100" : "max-h-0 opacity-0"
+                        }`}
+                    >
+                        <div
+                            className={`px-6 py-3 transition-all duration-300 ease-out ${
+                                showFilters ? "translate-y-0" : "-translate-y-2"
+                            }`}
+                        >
+                            {filters}
+                        </div>
+                    </div>
                 ) : null}
 
                 {/* logs / table */}
