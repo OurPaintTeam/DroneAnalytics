@@ -1,8 +1,8 @@
-import {useId, useState, type CSSProperties} from "react"
+import {useEffect, useId, useRef, useState, type CSSProperties} from "react"
 
 import {RED} from "../config"
 import {LOG_SERVICE_TYPES, LOG_SEVERITIES} from "../logConstants"
-import {buildEventSafetySearchParams, type EventSafetyFilterForm} from "../logQuery"
+import {buildEventSafetySearchParams, LOG_MESSAGE_QUERY_MAX, type EventSafetyFilterForm} from "../logQuery"
 import MUIRangePicker from "./DateRangePicker"
 
 type Props = {
@@ -18,12 +18,38 @@ const emptyForm = (): EventSafetyFilterForm => ({
     service: "",
     serviceIdRaw: "",
     severity: "",
+    message: "",
 })
+
+const MESSAGE_APPLY_DEBOUNCE_MS = 350
 
 export default function EventSafetyLogFilters({onApply}: Props) {
     const baseId = useId()
     const [form, setForm] = useState<EventSafetyFilterForm>(emptyForm)
     const [error, setError] = useState<string | null>(null)
+    const formRef = useRef(form)
+    const onApplyRef = useRef(onApply)
+    const messageDebounceArmed = useRef(false)
+
+    formRef.current = form
+    onApplyRef.current = onApply
+
+    useEffect(() => {
+        if (!messageDebounceArmed.current) {
+            messageDebounceArmed.current = true
+            return
+        }
+        const id = window.setTimeout(() => {
+            const {params, error: err} = buildEventSafetySearchParams(formRef.current)
+            if (err) {
+                setError(err)
+                return
+            }
+            setError(null)
+            onApplyRef.current(params)
+        }, MESSAGE_APPLY_DEBOUNCE_MS)
+        return () => window.clearTimeout(id)
+    }, [form.message])
 
     const apply = () => {
         const {params, error: err} = buildEventSafetySearchParams(form)
@@ -44,87 +70,117 @@ export default function EventSafetyLogFilters({onApply}: Props) {
     const ringFocus = {["--tw-ring-color" as string]: RED} as CSSProperties
 
     return (
-        <div className="space-y-1.5">
+        <div className="space-y-3">
             <div className="grid gap-2.5 md:grid-cols-12 md:items-end md:gap-x-3">
-                <div className="md:col-span-4">
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Период</label>
-                    <MUIRangePicker
-                        variant="inline"
-                        from={form.from}
-                        to={form.to}
-                        onChange={(from, to) => setForm(f => ({...f, from, to}))}
-                    />
-                </div>
+                    <div className="md:col-span-3">
+                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                            Период
+                        </label>
+                        <MUIRangePicker
+                            variant="inline"
+                            from={form.from}
+                            to={form.to}
+                            onChange={(from, to) => setForm(f => ({...f, from, to}))}
+                        />
+                    </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:col-span-6">
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Сервис</span>
-                        <select
-                            id={`${baseId}-svc`}
-                            className={fieldClass}
-                            style={ringFocus}
-                            value={form.service}
-                            onChange={e => setForm(f => ({...f, service: e.target.value}))}
-                        >
-                            <option value="">Все</option>
-                            {LOG_SERVICE_TYPES.map(s => (
-                                <option key={s} value={s}>
-                                    {s}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">ID сервиса</span>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:col-span-5">
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                                Сервис
+                            </span>
+                            <select
+                                id={`${baseId}-svc`}
+                                className={fieldClass}
+                                style={ringFocus}
+                                value={form.service}
+                                onChange={e => setForm(f => ({...f, service: e.target.value}))}
+                            >
+                                <option value="">Все</option>
+                                {LOG_SERVICE_TYPES.map(s => (
+                                    <option key={s} value={s}>
+                                        {s}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                                ID сервиса
+                            </span>
+                            <input
+                                id={`${baseId}-sid`}
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                placeholder="1–1000"
+                                className={fieldClass}
+                                style={ringFocus}
+                                value={form.serviceIdRaw}
+                                onChange={e => setForm(f => ({...f, serviceIdRaw: e.target.value}))}
+                            />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                                Важность
+                            </span>
+                            <select
+                                id={`${baseId}-sev`}
+                                className={fieldClass}
+                                style={ringFocus}
+                                value={form.severity}
+                                onChange={e => setForm(f => ({...f, severity: e.target.value}))}
+                            >
+                                <option value="">Все</option>
+                                {LOG_SEVERITIES.map(s => (
+                                    <option key={s} value={s}>
+                                        {s}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
+
+                    <label className="flex flex-col gap-1 md:col-span-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                            Сообщение
+                        </span>
                         <input
-                            id={`${baseId}-sid`}
-                            type="text"
-                            inputMode="numeric"
+                            id={`${baseId}-message`}
+                            type="search"
+                            enterKeyHint="search"
                             autoComplete="off"
-                            placeholder="1–1000"
-                            className={fieldClass}
+                            maxLength={LOG_MESSAGE_QUERY_MAX}
+                            placeholder="Сообщение…"
+                            className={`${fieldClass} font-mono`}
                             style={ringFocus}
-                            value={form.serviceIdRaw}
-                            onChange={e => setForm(f => ({...f, serviceIdRaw: e.target.value}))}
+                            value={form.message}
+                            onChange={e => setForm(f => ({...f, message: e.target.value}))}
                         />
                     </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Важность</span>
-                        <select
-                            id={`${baseId}-sev`}
-                            className={fieldClass}
-                            style={ringFocus}
-                            value={form.severity}
-                            onChange={e => setForm(f => ({...f, severity: e.target.value}))}
+
+                    <div className="flex gap-2 sm:justify-end md:col-span-2 md:pb-[1px]">
+                        <button
+                            type="button"
+                            className="rounded-md border border-[#d8dce6] bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-[#c2c9d8] hover:bg-white hover:shadow sm:text-sm"
+                            onClick={reset}
                         >
-                            <option value="">Все</option>
-                            {LOG_SEVERITIES.map(s => (
-                                <option key={s} value={s}>
-                                    {s}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                </div>
-                <div className="flex gap-2 sm:justify-end md:col-span-2 md:pb-[1px]">
-                    <button
-                        type="button"
-                        className="rounded-md border border-[#d8dce6] bg-[#fbfcff] px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-[#c2c9d8] hover:bg-white hover:shadow-sm sm:text-sm"
-                        onClick={reset}
-                    >
-                        Сбросить
-                    </button>
-                    <button
-                        type="button"
-                        className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-[0_4px_12px_rgba(159,45,32,0.25)] transition hover:-translate-y-[1px] hover:brightness-110 sm:text-sm"
-                        style={{background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)", borderColor: "#7f2419"}}
-                        onClick={apply}
-                    >
-                        Применить
-                    </button>
-                </div>
+                            Сбросить
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-[0_4px_14px_rgba(159,45,32,0.28)] transition hover:-translate-y-px hover:brightness-110 active:translate-y-0 sm:text-sm"
+                            style={{background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)", borderColor: "#7f2419"}}
+                            onClick={apply}
+                        >
+                            Применить
+                        </button>
+                    </div>
             </div>
-            <div className="min-h-[14px]">{error ? <p className="text-xs text-red-600 sm:text-sm">{error}</p> : null}</div>
+
+            <div className="min-h-[14px] px-0.5">
+                {error ? <p className="text-xs text-red-600 sm:text-sm">{error}</p> : null}
+            </div>
         </div>
     )
 }
