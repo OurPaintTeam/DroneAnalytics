@@ -10,7 +10,7 @@ type Props = {
 }
 
 const fieldClass =
-    "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-0"
+    "w-full rounded-md border border-[#d8dce6] bg-[#fbfcff] px-2.5 py-1.5 text-sm text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition placeholder:text-slate-400 hover:border-[#bfc5d5] hover:shadow-[0_0_0_3px_rgba(159,45,32,0.06)] focus:border-[#9F2D20] focus:bg-white focus:outline-none focus:ring-2 focus:ring-offset-0"
 
 const emptyForm = (): EventSafetyFilterForm => ({
     from: null,
@@ -44,16 +44,10 @@ export default function EventSafetyLogFilters({onApply}: Props) {
     const ringFocus = {["--tw-ring-color" as string]: RED} as CSSProperties
 
     return (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-            <div className="mb-4 flex items-center gap-2">
-                <h3 className="text-sm font-medium tracking-tight text-gray-800">Фильтры</h3>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-12 lg:items-end lg:gap-x-6 lg:gap-y-4">
-                <div className="lg:col-span-5">
-                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                        Период <span className="font-normal text-gray-400">· timestamp записей, мс UTC</span>
-                    </label>
+        <div className="space-y-1.5">
+            <div className="grid gap-2.5 md:grid-cols-12 md:items-end md:gap-x-3">
+                <div className="md:col-span-4">
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Период</label>
                     <MUIRangePicker
                         variant="inline"
                         from={form.from}
@@ -62,9 +56,9 @@ export default function EventSafetyLogFilters({onApply}: Props) {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:col-span-7">
-                    <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-medium text-gray-500">Сервис</span>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:col-span-6">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Сервис</span>
                         <select
                             id={`${baseId}-svc`}
                             className={fieldClass}
@@ -80,8 +74,8 @@ export default function EventSafetyLogFilters({onApply}: Props) {
                             ))}
                         </select>
                     </label>
-                    <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-medium text-gray-500">ID сервиса</span>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">ID сервиса</span>
                         <input
                             id={`${baseId}-sid`}
                             type="text"
@@ -94,8 +88,8 @@ export default function EventSafetyLogFilters({onApply}: Props) {
                             onChange={e => setForm(f => ({...f, serviceIdRaw: e.target.value}))}
                         />
                     </label>
-                    <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-medium text-gray-500">Важность</span>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Важность</span>
                         <select
                             id={`${baseId}-sev`}
                             className={fieldClass}
@@ -112,29 +106,25 @@ export default function EventSafetyLogFilters({onApply}: Props) {
                         </select>
                     </label>
                 </div>
-            </div>
-
-            <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                    {error ? <p className="text-sm text-red-600">{error}</p> : null}
-                </div>
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <div className="flex gap-2 sm:justify-end md:col-span-2 md:pb-[1px]">
                     <button
                         type="button"
-                        className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 transition hover:bg-gray-50"
+                        className="rounded-md border border-[#d8dce6] bg-[#fbfcff] px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-[#c2c9d8] hover:bg-white hover:shadow-sm sm:text-sm"
                         onClick={reset}
                     >
                         Сбросить
                     </button>
                     <button
                         type="button"
-                        className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                        className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-[0_4px_12px_rgba(159,45,32,0.25)] transition hover:-translate-y-[1px] hover:brightness-110 sm:text-sm"
+                        style={{background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)", borderColor: "#7f2419"}}
                         onClick={apply}
                     >
                         Применить
                     </button>
                 </div>
             </div>
+            <div className="min-h-[14px]">{error ? <p className="text-xs text-red-600 sm:text-sm">{error}</p> : null}</div>
         </div>
     )
 }
