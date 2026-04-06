@@ -2,7 +2,6 @@ import * as React from "react"
 import {useEffect, useRef, useState} from "react"
 import {RED} from "../config.ts"
 import {BACKEND_URL} from "../config"
-import MUIRangePicker from "./DateRangePicker.tsx"
 
 export interface Column<T> {
     key: keyof T
@@ -14,15 +13,14 @@ export interface LogPanelProps<T> {
     title: string
     logs: T[]
     columns?: Column<T>[]
-    /** Опциональная панель фильтров (только список; скачивание CSV — по календарю выше). */
+    /** Опциональная панель фильтров. */
     filters?: React.ReactNode
-    onDownload?: (from: Date | null, to: Date | null) => void
+    onDownload?: () => void
 }
 
 export const downloadLogs = async (
     urlPath: string,
-    fromDate: Date | null,
-    toDate: Date | null
+    params?: URLSearchParams
 ) => {
     try {
         const access = localStorage.getItem("access_token")
@@ -31,11 +29,8 @@ export const downloadLogs = async (
             return
         }
 
-        const params = new URLSearchParams()
-        if (fromDate) params.append("from_ts", String(fromDate.getTime()))
-        if (toDate) params.append("to_ts", String(toDate.getTime()))
-
-        const url = `${BACKEND_URL}${urlPath}${params.toString() ? `?${params.toString()}` : ""}`
+        const qs = params?.toString() ?? ""
+        const url = `${BACKEND_URL}${urlPath}${qs ? `?${qs}` : ""}`
 
         const res = await fetch(url, {
             method: "GET",
@@ -72,10 +67,7 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
     const logsEndRef = useRef<HTMLDivElement>(null)
     const safeLogs = Array.isArray(logs) ? logs : []
 
-    const [showPicker, setShowPicker] = useState(false)
-    const [showFilters, setShowFilters] = useState(true)
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null])
-    const [startDate, endDate] = dateRange
+    const [showFilters, setShowFilters] = useState(false)
 
 
     useEffect(() => {
@@ -84,93 +76,64 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
 
     const handleDownload = () => {
         if (!onDownload) return
-        onDownload(startDate, endDate)
+        onDownload()
     }
 
     return (
         <div
-            className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden relative font-sans bg-white text-gray-800 pt-6 pb-6">
-            <div className="flex-1 flex flex-col mx-6 rounded-xl shadow-2xl relative bg-white overflow-hidden">
+            className="relative flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-white pt-3 pb-3 font-sans text-gray-800 sm:pt-4 sm:pb-4">
+            <div className="relative mx-2 flex flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:mx-4 sm:rounded-xl md:mx-6">
 
                 {/* red line */}
                 <div className="absolute top-0 left-0 right-0 h-[3px]" style={{backgroundColor: RED}}/>
 
                 {/* header */}
                 <div
-                    className="px-6 py-2 flex justify-between items-center border-b text-sm font-semibold text-gray-600 relative">
-                    <div className="flex items-center gap-3">
+                    className="relative flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 text-sm font-semibold text-gray-600 sm:px-4 md:px-6">
+                    <div className="flex items-center gap-2 sm:gap-3">
                         <span>{title}</span>
-                        {filters ? (
-                            <button
-                                type="button"
-                                onClick={() => setShowFilters(prev => !prev)}
-                                aria-expanded={showFilters}
-                                className="group inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
-                            >
-                                Фильтры
-                                <span
-                                    className={`inline-block text-[10px] leading-none transition-transform duration-300 ${showFilters ? "rotate-180" : ""}`}
-                                    aria-hidden
-                                >
-                                    ▼
-                                </span>
-                            </button>
-                        ) : null}
                     </div>
 
-                    {onDownload && (
-                        <div className="flex items-center gap-2 relative">
-                            <button
-                                onClick={() => setShowPicker(prev => !prev)}
-                                className="px-3 py-1.5 rounded-md text-sm text-white transition-transform duration-150 ease-in-out
-                   hover:scale-105 hover:bg-gray-600 active:scale-95"
-                                style={{background: "#e6e6e6"}}
-                            >
-                                📅
-                            </button>
-
-                            <button
-                                onClick={handleDownload}
-                                className="px-4 py-1.5 rounded-md text-sm font-medium text-white shadow-sm
-                   transition-transform duration-150 ease-in-out
-                   hover:scale-105 hover:brightness-110 active:scale-95"
-                                style={{background: RED}}
-                            >
-                                Скачать
-                            </button>
-
-                            {showPicker && (
-                                <div
-                                    className="absolute top-full mt-2"
-                                    style={{
-                                        minWidth: "350px",
-                                        left: "40%",
-                                        transform: "translateX(calc(-40% - 110px))"
-                                    }}
+                    <div className="relative flex items-center gap-2">
+                        {filters ? (
+                            <div className="flex items-center">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFilters(prev => !prev)}
+                                    className="inline-flex items-center gap-1.5 rounded-md border border-[#d8dce6] bg-[#fbfcff] px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.04em] text-slate-700 transition hover:-translate-y-[1px] hover:border-[#c2c9d8] hover:bg-white"
                                 >
-                                    <MUIRangePicker
-                                        from={startDate}
-                                        to={endDate}
-                                        onChange={(from, to) => setDateRange([from, to])}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                    {showFilters ? "Скрыть фильтры" : "Показать фильтры"}
+                                    <span className="inline-block text-[10px] leading-none transition-transform duration-300" aria-hidden>
+                                        {showFilters ? "▲" : "▼"}
+                                    </span>
+                                </button>
+                            </div>
+                        ) : null}
+
+                        {filters && onDownload ? <div className="h-6 w-px bg-[#e6e9f1]"/> : null}
+
+                        {onDownload && (
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <button
+                                    onClick={handleDownload}
+                                    className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 sm:px-4 sm:text-sm"
+                                    style={{background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)", borderColor: "#7f2419"}}
+                                >
+                                    Скачать
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {filters ? (
-                    <div
-                        className={`overflow-hidden border-b border-gray-100/90 bg-white transition-all duration-300 ease-out ${
-                            showFilters ? "max-h-[420px] opacity-100" : "max-h-0 opacity-0"
-                        }`}
-                    >
-                        <div
-                            className={`px-6 py-3 transition-all duration-300 ease-out ${
-                                showFilters ? "translate-y-0" : "-translate-y-2"
-                            }`}
-                        >
-                            {filters}
+                    <div className="border-b border-[#ebeef5] bg-[radial-gradient(120%_140%_at_100%_0%,rgba(159,45,32,0.06)_0%,rgba(159,45,32,0)_45%),linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)]">
+                        <div className={`grid transition-all duration-300 ease-out ${showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                            <div className="overflow-hidden">
+                                <div className={`px-3 pt-2 pb-2.5 sm:px-4 md:px-6 transition-transform duration-300 ${showFilters ? "translate-y-0" : "-translate-y-1"}`}>
+                                    {filters}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : null}
