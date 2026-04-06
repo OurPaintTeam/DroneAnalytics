@@ -5,6 +5,7 @@ import {fetchLogJsonArray} from "../api/fetchLogs"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import TelemetryLogFilters from "../components/TelemetryLogFilters"
 import {checkAuth} from "../components/TokenCheck"
+import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
 
 interface TelemetryLog {
     timestamp: number
@@ -20,7 +21,9 @@ interface TelemetryLog {
 
 export default function TelemetryLogPage() {
     const [logs, setLogs] = useState<TelemetryLog[]>([])
-    const [searchParams, setSearchParams] = useState(() => new URLSearchParams())
+    const [filterParams, setFilterParams] = useState(() => new URLSearchParams())
+    const [page, setPage] = useState(1)
+    const [limit, setLimit] = useState<LogPageSize>(LOG_PAGE_DEFAULT)
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -32,7 +35,8 @@ export default function TelemetryLogPage() {
                 return
             }
             try {
-                const data = await fetchLogJsonArray("/log/telemetry", searchParams)
+                const listParams = buildLogListSearchParams(filterParams, page, limit)
+                const data = await fetchLogJsonArray("/log/telemetry", listParams)
                 if (!cancelled) setLogs(data as TelemetryLog[])
             } catch {
                 if (!cancelled) console.error("Ошибка загрузки журнала")
@@ -42,13 +46,20 @@ export default function TelemetryLogPage() {
         return () => {
             cancelled = true
         }
-    }, [navigate, searchParams])
+    }, [navigate, filterParams, page, limit])
 
     return (
         <LogPanel<TelemetryLog>
             title="Телеметрия"
             logs={logs}
-            filters={<TelemetryLogFilters onApply={setSearchParams} />}
+            filters={
+                <TelemetryLogFilters
+                    onApply={p => {
+                        setFilterParams(p)
+                        setPage(1)
+                    }}
+                />
+            }
             columns={[
                 {
                     key: "timestamp",
@@ -64,7 +75,17 @@ export default function TelemetryLogPage() {
                 {key: "latitude", label: "Latitude"},
                 {key: "longitude", label: "Longitude"},
             ]}
-            onDownload={() => downloadLogs("/log/download/telemetry", searchParams)}
+            onDownload={() => downloadLogs("/log/download/telemetry", filterParams)}
+            pagination={{
+                page,
+                limit,
+                canGoNext: logs.length >= limit,
+                onPageChange: setPage,
+                onLimitChange: l => {
+                    setLimit(l)
+                    setPage(1)
+                },
+            }}
         />
     )
 }

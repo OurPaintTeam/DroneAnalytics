@@ -5,6 +5,7 @@ import {fetchLogJsonArray} from "../api/fetchLogs"
 import EventSafetyLogFilters from "../components/EventSafetyLogFilters"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import {checkAuth} from "../components/TokenCheck"
+import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
 
 interface EventLog {
     timestamp: number
@@ -16,7 +17,9 @@ interface EventLog {
 
 export default function EventLogPage() {
     const [logs, setLogs] = useState<EventLog[]>([])
-    const [searchParams, setSearchParams] = useState(() => new URLSearchParams())
+    const [filterParams, setFilterParams] = useState(() => new URLSearchParams())
+    const [page, setPage] = useState(1)
+    const [limit, setLimit] = useState<LogPageSize>(LOG_PAGE_DEFAULT)
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -28,7 +31,8 @@ export default function EventLogPage() {
                 return
             }
             try {
-                const data = await fetchLogJsonArray("/log/event", searchParams)
+                const listParams = buildLogListSearchParams(filterParams, page, limit)
+                const data = await fetchLogJsonArray("/log/event", listParams)
                 if (!cancelled) setLogs(data as EventLog[])
             } catch {
                 if (!cancelled) console.error("Ошибка загрузки журнала")
@@ -38,13 +42,20 @@ export default function EventLogPage() {
         return () => {
             cancelled = true
         }
-    }, [navigate, searchParams])
+    }, [navigate, filterParams, page, limit])
 
     return (
         <LogPanel<EventLog>
             title="Журнал событий"
             logs={logs}
-            filters={<EventSafetyLogFilters onApply={setSearchParams} />}
+            filters={
+                <EventSafetyLogFilters
+                    onApply={p => {
+                        setFilterParams(p)
+                        setPage(1)
+                    }}
+                />
+            }
             columns={[
                 {
                     key: "timestamp",
@@ -56,7 +67,17 @@ export default function EventLogPage() {
                 {key: "severity", label: "Severity"},
                 {key: "message", label: "Message"},
             ]}
-            onDownload={() => downloadLogs("/log/download/event", searchParams)}
+            onDownload={() => downloadLogs("/log/download/event", filterParams)}
+            pagination={{
+                page,
+                limit,
+                canGoNext: logs.length >= limit,
+                onPageChange: setPage,
+                onLimitChange: l => {
+                    setLimit(l)
+                    setPage(1)
+                },
+            }}
         />
     )
 }
