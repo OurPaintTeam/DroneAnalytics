@@ -689,15 +689,25 @@ def download_basic_csv(
 def download_telemetry_csv(
     from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
     to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    drone: LogDroneType | None = Query(None),
+    drone_id: int | None = Query(None, ge=1),
     _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    term_filters: dict[str, str | int] = {}
+    if drone is not None:
+        term_filters["drone"] = drone
+    if drone_id is not None:
+        term_filters["drone_id"] = drone_id
+
     fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude"]
 
     rows_iter = _es_scroll_iter(
         "telemetry",
         from_ts,
         to_ts,
-        _source=fieldnames
+        _source=fieldnames,
+        term_filters=term_filters if term_filters else None,
     )
 
     filename = _make_filename("telemetry_logs", from_ts, to_ts)
