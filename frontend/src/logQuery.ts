@@ -1,5 +1,8 @@
 import {isLogDroneType, isLogServiceType, isLogSeverity, SERVICE_ID_MAX, SERVICE_ID_MIN} from "./logConstants"
 
+/** Максимальная длина строки полнотекстового поиска по `message` (совпадает с бэкендом). */
+export const LOG_MESSAGE_QUERY_MAX = 512
+
 export function dateToEpochMs(d: Date | null): number | undefined {
     if (!d) return undefined
     const t = d.getTime()
@@ -12,6 +15,7 @@ export type EventSafetyFilterForm = {
     service: string
     serviceIdRaw: string
     severity: string
+    message: string
 }
 
 export function buildEventSafetySearchParams(f: EventSafetyFilterForm): {
@@ -36,6 +40,13 @@ export function buildEventSafetySearchParams(f: EventSafetyFilterForm): {
         params.set("service_id", String(n))
     }
     if (f.severity && isLogSeverity(f.severity)) params.set("severity", f.severity)
+    const message = f.message.trim()
+    if (message) {
+        if (message.length > LOG_MESSAGE_QUERY_MAX) {
+            return {params, error: "Запрос поиска слишком длинный."}
+        }
+        params.set("message", message)
+    }
     return {params, error: null}
 }
 
