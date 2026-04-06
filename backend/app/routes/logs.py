@@ -179,7 +179,16 @@ def _get_logs_from_index(
 
 
 
-def _es_scroll_iter(index: str, from_ms: Optional[int], to_ms: Optional[int], _source: Optional[list] = None, batch_size: int = 1000):
+def _es_scroll_iter(
+    index: str,
+    from_ms: Optional[int],
+    to_ms: Optional[int],
+    _source: Optional[list] = None,
+    batch_size: int = 1000,
+    *,
+    exclude_service: str | None = None,
+    term_filters: dict[str, str | int] | None = None,
+):
     """
     Итератор, который возвращает документы из ES используя scroll API.
     Пагинация выполняется через scroll, возвращает документный _source словарь.
@@ -189,16 +198,14 @@ def _es_scroll_iter(index: str, from_ms: Optional[int], to_ms: Optional[int], _s
         "size": batch_size,
         "sort": [{"timestamp": {"order": "desc"}}],
     }
-    bool_filter = []
-    if from_ms is not None or to_ms is not None:
-        rng = {}
-        if from_ms is not None:
-            rng["gte"] = from_ms
-        if to_ms is not None:
-            rng["lte"] = to_ms
-        bool_filter.append({"range": {"timestamp": rng}})
-    if bool_filter:
-        query["query"] = {"bool": {"filter": bool_filter}}
+    q = build_log_list_query(
+        exclude_service=exclude_service,
+        from_ts=from_ms,
+        to_ts=to_ms,
+        term_filters=term_filters,
+    )
+    if q is not None:
+        query["query"] = q
     if _source is not None:
         query["_source"] = _source
 
