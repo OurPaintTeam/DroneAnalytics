@@ -674,15 +674,21 @@ def get_safety(
 def download_basic_csv(
     from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
     to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    message: str | None = Query(None, max_length=512, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
+    message_match = message.strip() if message else None
+    if message_match == "":
+        message_match = None
     fieldnames = ["timestamp", "message"]
 
     rows_iter = _es_scroll_iter(
         "basic",
         from_ts,
         to_ts,
-        _source=fieldnames
+        _source=fieldnames,
+        message_match=message_match,
     )
 
     filename = _make_filename("basic_logs", from_ts, to_ts)
