@@ -1,11 +1,21 @@
 import * as React from "react"
 import {useEffect, useRef, useState} from "react"
 import {BACKEND_URL, RED} from "../config"
+import {LOG_PAGE_SIZE_OPTIONS, type LogPageSize} from "../logPagination"
 
 export interface Column<T> {
     key: keyof T
     label: string
     render?: (value: any, row: T) => React.ReactNode
+}
+
+export interface LogPanelPagination {
+    page: number
+    limit: LogPageSize
+    /** Есть ли следующая страница (получили полную порцию limit записей). */
+    canGoNext: boolean
+    onPageChange: (page: number) => void
+    onLimitChange: (limit: LogPageSize) => void
 }
 
 export interface LogPanelProps<T> {
@@ -15,6 +25,7 @@ export interface LogPanelProps<T> {
     /** Опциональная панель фильтров. */
     filters?: React.ReactNode
     onDownload?: () => void
+    pagination?: LogPanelPagination
 }
 
 export const downloadLogs = async (
@@ -62,16 +73,26 @@ export const downloadLogs = async (
     }
 }
 
-export default function LogPanel<T>({title, logs, columns, filters, onDownload}: LogPanelProps<T>) {
+const secondaryBtnClass =
+    "rounded-md border border-[#d8dce6] bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-[#c2c9d8] hover:bg-[#fbfcff] disabled:pointer-events-none disabled:opacity-45 sm:text-sm"
+
+const primaryBtnClass =
+    "rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-45 sm:text-sm"
+
+export default function LogPanel<T>({title, logs, columns, filters, onDownload, pagination}: LogPanelProps<T>) {
     const logsEndRef = useRef<HTMLDivElement>(null)
+    const scrollRef = useRef<HTMLDivElement>(null)
     const safeLogs = Array.isArray(logs) ? logs : []
 
     const [showFilters, setShowFilters] = useState(false)
 
-
     useEffect(() => {
+        if (pagination) {
+            scrollRef.current?.scrollTo({top: 0, behavior: "smooth"})
+            return
+        }
         logsEndRef.current?.scrollIntoView({behavior: "smooth"})
-    }, [safeLogs])
+    }, [safeLogs, pagination, pagination?.page])
 
     const handleDownload = () => {
         if (!onDownload) return
@@ -138,7 +159,10 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
                 ) : null}
 
                 {/* logs / table */}
-                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2 font-mono text-sm text-gray-600">
+                <div
+                    ref={scrollRef}
+                    className="flex-1 overflow-y-auto px-6 py-4 space-y-2 font-mono text-sm text-gray-600"
+                >
                     {columns ? (
                         <table className="w-full table-auto border-collapse text-left">
                             <thead>
@@ -172,6 +196,52 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
                     )}
                     <div ref={logsEndRef}/>
                 </div>
+
+                {pagination ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ebeef5] bg-white px-4 py-2.5 sm:px-6">
+                        <label className="flex items-center gap-2 text-xs text-slate-600 sm:text-sm">
+                            <span className="whitespace-nowrap font-medium text-slate-500">На странице</span>
+                            <select
+                                className="rounded-md border border-[#d8dce6] bg-[#fbfcff] px-2 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus:border-[#9F2D20] focus:outline-none focus:ring-2 focus:ring-[#9F2D20]/25 sm:text-sm"
+                                value={pagination.limit}
+                                onChange={e =>
+                                    pagination.onLimitChange(Number(e.target.value) as LogPageSize)
+                                }
+                            >
+                                {LOG_PAGE_SIZE_OPTIONS.map(sz => (
+                                    <option key={sz} value={sz}>
+                                        {sz}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                            <button
+                                type="button"
+                                className={secondaryBtnClass}
+                                disabled={pagination.page <= 1}
+                                onClick={() => pagination.onPageChange(pagination.page - 1)}
+                            >
+                                Назад
+                            </button>
+                            <span className="min-w-[4.5rem] text-center text-xs tabular-nums text-slate-500 sm:text-sm">
+                                Стр.&nbsp;{pagination.page}
+                            </span>
+                            <button
+                                type="button"
+                                className={primaryBtnClass}
+                                style={{
+                                    background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)",
+                                    borderColor: "#7f2419",
+                                }}
+                                disabled={!pagination.canGoNext}
+                                onClick={() => pagination.onPageChange(pagination.page + 1)}
+                            >
+                                Далее
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </div>
     )
