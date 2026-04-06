@@ -43,13 +43,8 @@ export default function TelemetryLogFilters({onApply}: Props) {
     const ringFocus = {["--tw-ring-color" as string]: RED} as CSSProperties
 
     return (
-        <div className="rounded-xl border border-gray-100 bg-gradient-to-b from-gray-50/80 to-white p-4 sm:p-5">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <div className="mb-4 flex items-center gap-2">
-                <span
-                    className="h-2 w-0.5 shrink-0 rounded-full"
-                    style={{backgroundColor: RED}}
-                    aria-hidden
-                />
                 <h3 className="text-sm font-medium tracking-tight text-gray-800">Фильтры</h3>
             </div>
 
@@ -115,8 +110,7 @@ export default function TelemetryLogFilters({onApply}: Props) {
                     </button>
                     <button
                         type="button"
-                        className="rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-105"
-                        style={{backgroundColor: RED}}
+                        className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                         onClick={apply}
                     >
                         Применить
