@@ -56,7 +56,7 @@ export default function SecurityLogPage() {
                 {key: "severity", label: "Severity"},
                 {key: "message", label: "Message"},
             ]}
-            onDownload={(from, to) => downloadLogs("/log/download/safety", from, to)}
+            onDownload={() => downloadLogs("/log/download/safety", searchParams)}
         />
     )
 }

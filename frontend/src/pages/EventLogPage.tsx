@@ -56,7 +56,7 @@ export default function EventLogPage() {
                 {key: "severity", label: "Severity"},
                 {key: "message", label: "Message"},
             ]}
-            onDownload={(from, to) => downloadLogs("/log/download/event", from, to)}
+            onDownload={() => downloadLogs("/log/download/event", searchParams)}
         />
     )
 }

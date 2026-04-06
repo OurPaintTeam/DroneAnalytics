@@ -64,7 +64,7 @@ export default function TelemetryLogPage() {
                 {key: "latitude", label: "Latitude"},
                 {key: "longitude", label: "Longitude"},
             ]}
-            onDownload={(from, to) => downloadLogs("/log/download/telemetry", from, to)}
+            onDownload={() => downloadLogs("/log/download/telemetry", searchParams)}
         />
     )
 }
