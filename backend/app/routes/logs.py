@@ -747,9 +747,13 @@ def download_event_csv(
     service: LogServiceType | None = Query(None),
     service_id: int | None = Query(None, ge=1),
     severity: LogSeverityType | None = Query(None),
+    message: str | None = Query(None, max_length=512, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
+    message_match = message.strip() if message else None
+    if message_match == "":
+        message_match = None
     term_filters: dict[str, str | int] = {}
     if service is not None:
         term_filters["service"] = service
@@ -767,6 +771,7 @@ def download_event_csv(
         _source=fieldnames,
         exclude_service=AUDIT_SERVICE,
         term_filters=term_filters if term_filters else None,
+        message_match=message_match,
     )
 
     filename = _make_filename("event_logs", from_ts, to_ts)
