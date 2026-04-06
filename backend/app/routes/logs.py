@@ -188,6 +188,7 @@ def _es_scroll_iter(
     *,
     exclude_service: str | None = None,
     term_filters: dict[str, str | int] | None = None,
+    message_match: str | None = None,
 ):
     """
     Итератор, который возвращает документы из ES используя scroll API.
@@ -203,6 +204,7 @@ def _es_scroll_iter(
         from_ts=from_ms,
         to_ts=to_ms,
         term_filters=term_filters,
+        message_match=message_match,
     )
     if q is not None:
         query["query"] = q
