@@ -1,7 +1,6 @@
 import * as React from "react"
 import {useEffect, useRef, useState} from "react"
-import {RED} from "../config.ts"
-import {BACKEND_URL} from "../config"
+import {BACKEND_URL, RED} from "../config"
 
 export interface Column<T> {
     key: keyof T
@@ -127,7 +126,7 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
                 </div>
 
                 {filters ? (
-                    <div className="border-b border-[#ebeef5] bg-[radial-gradient(120%_140%_at_100%_0%,rgba(159,45,32,0.06)_0%,rgba(159,45,32,0)_45%),linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)]">
+                    <div className="border-b border-[#ebeef5] bg-white">
                         <div className={`grid transition-all duration-300 ease-out ${showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                             <div className="overflow-hidden">
                                 <div className={`px-3 pt-2 pb-2.5 sm:px-4 md:px-6 transition-transform duration-300 ${showFilters ? "translate-y-0" : "-translate-y-1"}`}>
@@ -165,7 +164,6 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload}:
                             </tbody>
                         </table>
                     ) : (
-
                         safeLogs.map((log, i) => (
                             <div key={i} className="pl-3 border-l-2" style={{borderColor: RED}}>
                                 {String(log)}
