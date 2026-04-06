@@ -39,7 +39,15 @@ def build_log_list_query(
 
     must: list[dict] = []
     if message_match:
-        must.append({"match": {"message": message_match}})
+        must.append(
+            {
+                "match_bool_prefix": {
+                    "message": {
+                        "query": message_match,
+                    }
+                }
+            }
+        )
 
     must_not: list[dict] = []
     if exclude_service:
