@@ -1,7 +1,7 @@
 services:
   backend:
     build:
-      context: ./backend
+      context: ./src/backend_component
       dockerfile: Dockerfile
     container_name: backend
     expose:
@@ -9,7 +9,7 @@ services:
     networks:
       - DE-net
     env_file:
-      - ./backend/.env
+      - ./src/backend_component/.env
     depends_on:
       - elastic
   elastic:
@@ -25,7 +25,7 @@ services:
       - esdata:/usr/share/elasticsearch/data
   frontend:
     build:
-      context: ./frontend
+      context: ./src/frontend_component
       dockerfile: Dockerfile
     container_name: frontend
     expose:
