@@ -631,14 +631,14 @@ class TestDownloadSafetyScrollPagination:
 
 
 class TestDownloadSafetyAuditLogs:
-    """Тесты внутренних аудит-логов сервиса."""
+    """Тесты фильтрации внутренних аудит-логов сервиса."""
 
-    def test_audit_service_logs_included_in_download(
+    def test_audit_service_logs_excluded_in_download(
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):
         """
-        В отличие от GET /log/safety, download-эндпоинт НЕ фильтрует аудит-логи.
-        Документы от service=infopanel должны присутствовать в CSV.
+        Download-эндпоинт, как и GET /log/safety, фильтрует аудит-логи.
+        Документы от service=infopanel не должны присутствовать в CSV.
         """
         base_ts = get_timestamp_ms()
         test_message = "TEST_AUDIT_INCLUDE_internal"
@@ -661,6 +661,6 @@ class TestDownloadSafetyAuditLogs:
         rows = parse_csv_from_response(resp)
         # Фильтруем по нашему тестовому маркеру
         test_rows = filter_rows_by_match(rows, test_message)
-        # Аудит-лог должен быть в download (в отличие от GET /log/safety)
+        # Аудит-лог не должен попадать в download
         infopanel_logs = [r for r in test_rows if r["service"] == "infopanel"]
-        assert len(infopanel_logs) == 1
+        assert len(infopanel_logs) == 0

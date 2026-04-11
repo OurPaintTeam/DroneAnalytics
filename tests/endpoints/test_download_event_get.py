@@ -533,10 +533,10 @@ class TestDownloadEventScroll:
 
 
 class TestDownloadEventAuditLogs:
-    """Тесты на наличие/отсутствие аудит-логов в выгрузке."""
+    """Тесты на фильрации аудит-логов в выгрузке."""
 
-    def test_download_event_includes_audit_service(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
-        """TC-14: Проверка, попадают ли логи сервиса 'infopanel' в выгрузку."""
+    def test_download_event_excludes_audit_service(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
+        """TC-14: Проверка, что логи сервиса 'infopanel' не попадают в выгрузку."""
         test_prefix = f"TEST_{get_timestamp_ms()}"
         base_ts = get_timestamp_ms()
         
@@ -574,11 +574,11 @@ class TestDownloadEventAuditLogs:
         all_rows = parse_csv_from_response(resp)
         test_rows = filter_rows_by_match(all_rows, test_prefix, startswith=True)
         
-        # В download_event_csv нет фильтра exclude_service
+        # В download_event_csv есть фильтр exclude_service=AUDIT_SERVICE
         services = [row["service"] for row in test_rows]
-        assert "infopanel" in services
+        assert "infopanel" not in services
         assert "GCS" in services
-        assert len(test_rows) == 2
+        assert len(test_rows) == 1
 
 
 class TestDownloadEventFilename:
