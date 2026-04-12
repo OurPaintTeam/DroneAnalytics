@@ -9,7 +9,7 @@ info:
   license:
     name: MIT License
     url: https://opensource.org/licenses/MIT
-  version: 1.0.0
+  version: 1.1.0
 
 servers:
   - url: https://localhost/api
@@ -43,10 +43,15 @@ paths:
       responses:
         200:
           description: Tokens issued
+          headers:
+            Set-Cookie:
+              description: refresh token
+              schema:
+                $ref: '#/components/schemas/refresh_token'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
+                $ref: '#/components/schemas/Token'
         400:
           $ref: '#/components/responses/ValidationError'
         401:
@@ -54,25 +59,23 @@ paths:
   /auth/refresh:
     post:
       tags: [auth]
-      summary: refresh access token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  $ref: '#/components/schemas/refresh_token'
-              required: [refresh_token]
+      summary: update access token
+      security:
+        - refresh: []
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: true
+          description: refresh token
+          schema:
+            $ref: '#/components/schemas/refresh_token'
       responses:
         200:
           description: New access token issued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
+                $ref: '#/components/schemas/Token'
         400:
           $ref: '#/components/responses/ValidationError'
         401:
@@ -83,25 +86,9 @@ paths:
       summary: logout
       security:
         - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  $ref: '#/components/schemas/refresh_token'
-              required: [refresh_token]
       responses:
         200:
-          description: Logs accepted successfully
-          content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/AcceptedResponse'
-        401:
-          $ref: '#/components/responses/UnauthorizedError'
+          description: OK
 
   /log/telemetry:
     post:
@@ -141,10 +128,18 @@ paths:
                     $ref: '#/components/schemas/latitude'
                   longitude:
                     $ref: '#/components/schemas/longitude'
+                  height:
+                    $ref: '#/components/schemas/height'
                 required: [ timestamp, drone, drone_id, latitude, longitude, apiVersion ]
       responses:
         200:
-          description: Logs accepted successfully
+          description: All logs accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        207:
+          description: Some logs were rejected
           content:
             application/json:
               schema:
@@ -199,6 +194,8 @@ paths:
                       $ref: '#/components/schemas/latitude'
                     longitude:
                       $ref: '#/components/schemas/longitude'
+                    height:
+                      $ref: '#/components/schemas/height'
                   required: [ timestamp, drone, drone_id, latitude, longitude ]
         401:
           $ref: '#/components/responses/UnauthorizedError'
@@ -222,7 +219,13 @@ paths:
                 $ref: '#/components/schemas/BasicLog'
       responses:
         200:
-          description: Logs accepted successfully
+          description: All logs accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        207:
+          description: Some logs were rejected
           content:
             application/json:
               schema:
@@ -299,7 +302,13 @@ paths:
                 required: [timestamp, service, service_id, message, apiVersion]
       responses:
         200:
-          description: Logs accepted successfully
+          description: All logs accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        207:
+          description: Some logs were rejected
           content:
             application/json:
               schema:
@@ -402,6 +411,10 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+    refresh: # It is necessary for /auth/refresh
+      type: apiKey
+      in: cookie
+      name: refresh_token
 
   schemas:
     message:
@@ -549,13 +562,11 @@ components:
           $ref: '#/components/schemas/message'
       required: [timestamp, service, service_id, message]
 
-    TokenPair:
+    Token:
       type: object
       properties:
         access_token:
           $ref: '#/components/schemas/access_token'
-        refresh_token:
-          $ref: '#/components/schemas/refresh_token'
         token_type:
           type: string
           default: "Bearer"
@@ -570,8 +581,45 @@ components:
     AcceptedResponse:
       type: object
       properties:
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000
+          description: Total number of log received
         accepted:
           type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000
           description: Number of log entries successfully indexed
+        rejected:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000
+          description: Number of log entries rejected
+        errors:
+          type: array
+          minItems: 0
+          maxItems: 1000
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+                format: int32
+                minimum: 0
+                maximum: 1000
+              reason:
+                type: string
+                maxLength: 64
+                description: Reason of rejection
       required:
         - accepted
+    height:
+      type: integer
+      format: int32
+      minimum: 0
+      maximum: 500000
+      description: height in meters
