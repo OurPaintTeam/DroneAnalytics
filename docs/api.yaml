@@ -923,8 +923,8 @@ components:
       required:
         - accepted
     height:
-      type: integer
-      format: int32
+      type: number
+      format: double
       minimum: 0
       maximum: 500000
       description: height in meters

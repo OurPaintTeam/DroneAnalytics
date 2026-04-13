@@ -37,6 +37,7 @@ def main():
                 "course": {"type": "double", "null_value": "0"},
                 "latitude": {"type": "double"},
                 "longitude": {"type": "double"},
+                "height": {"type": "double", "null_value": "0"}
             }
         }
     }
