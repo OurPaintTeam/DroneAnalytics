@@ -4,6 +4,7 @@ import {RouterProvider, Navigate, createBrowserRouter} from "react-router-dom"
 import "./index.css"
 
 import TopBar from "./components/TopBar.tsx"
+import ProtectedRoute from "./components/ProtectedRoute"
 
 import EventLog from "./pages/EventLogPage.tsx";
 import SecurityLog from "./pages/SecurityLogPage.tsx";
@@ -14,16 +15,18 @@ import CommandsPage from "./pages/CommandsPage.tsx";
 import ErrorPage from "./pages/ErrorPage.tsx"
 
 const router = createBrowserRouter([
-
     {
         path: "/login",
         element: <LoginPage/>,
         errorElement: <ErrorPage/>
     },
-
     {
         path: "/",
-        element: <TopBar/>,
+        element: (
+            <ProtectedRoute>
+                <TopBar/>
+            </ProtectedRoute>
+        ),
         errorElement: <ErrorPage/>,
         children: [
             {index: true, element: <Navigate to="/event" replace/>},

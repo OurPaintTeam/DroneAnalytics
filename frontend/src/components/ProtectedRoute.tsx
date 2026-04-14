@@ -1,0 +1,21 @@
+import {type JSX, useEffect, useState} from "react"
+import { Navigate } from "react-router-dom"
+import { checkAuth } from "./TokenCheck"
+
+export default function ProtectedRoute({ children }: { children: JSX.Element }) {
+    const [isAuth, setIsAuth] = useState<boolean | null>(null)
+
+    useEffect(() => {
+        checkAuth().then(setIsAuth)
+    }, [])
+
+    if (isAuth === null) {
+        return <div>Loading...</div>
+    }
+
+    if (!isAuth) {
+        return <Navigate to="/login" replace />
+    }
+
+    return children
+}
