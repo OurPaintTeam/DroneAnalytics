@@ -20,6 +20,7 @@ export default function EventLogPage() {
     const [page, setPage] = useState(1)
     const [limit, setLimit] = useState<LogPageSize>(LOG_PAGE_DEFAULT)
     const navigate = useNavigate()
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         let cancelled = false
@@ -28,8 +29,12 @@ export default function EventLogPage() {
                 const listParams = buildLogListSearchParams(filterParams, page, limit)
                 const data = await fetchLogJsonArray("/log/event", listParams)
                 if (!cancelled) setLogs(data as EventLog[])
-            } catch {
-                if (!cancelled) console.error("Ошибка загрузки журнала")
+            } catch (e: any) {
+                if (cancelled) return
+                console.error("Ошибка загрузки журнала:", e)
+
+                setLogs([])
+                setError(e?.message || "Сервер недоступен")
             }
         }
         void run()
@@ -72,6 +77,7 @@ export default function EventLogPage() {
                     setPage(1)
                 },
             }}
+            error={error}
         />
     )
 }
