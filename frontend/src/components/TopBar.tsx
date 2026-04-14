@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom"
 
 import SPbguLogo from "../assets/spbgu_logo.svg"
 import OP_logo from "../assets/OP_logo.svg"
-import {  BACKEND_URL,RED } from "../config.ts"
+import {RED } from "../config.ts"
+import { logout } from "./TokenCheck.ts"
 
 function TopBarLayout() {
     const [menuOpen, setMenuOpen] = useState(false)
@@ -40,23 +41,8 @@ function TopBarLayout() {
     const navigate = useNavigate()
 
     const handleLogout = async () => {
-        const access = localStorage.getItem("access_token")
-        try {
-            if (access) {
-                await fetch(`${BACKEND_URL}/auth/logout`, {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        Authorization: `Bearer ${access}`,
-                    },
-                })
-            }
-        } catch {
-            /* network errors: still clear client session */
-        } finally {
-            localStorage.removeItem("access_token")
-            navigate("/login")
-        }
+        await logout()
+        navigate("/login")
     }
 
     return (
