@@ -31,10 +31,10 @@ function TopBarLayout() {
   `
 
     const NAV_ITEMS = [
-        {to: "/event", label: "Журнал", end: true},
+        {to: "/general", label: "Главная", end: true},
+        {to: "/event", label: "Журнал"},
         {to: "/safety", label: "Безопасность"},
         {to: "/telemetry", label: "Телеметрия"},
-        {to: "/commands", label: "Аналитика команд"},
         {to: "/about", label: "О нас"},
     ]
 
