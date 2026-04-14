@@ -6,6 +6,23 @@ import SPbguLogo from "../assets/spbgu_logo.svg"
 import {RED, BACKEND_URL} from "../config.ts"
 import {checkAuth} from "../components/TokenCheck.ts"
 
+function getAuthErrorMessage(status: number): string {
+    switch (status) {
+        case 400:
+            return "Неверный запрос"
+        case 401:
+            return "Неверный логин или пароль"
+        case 403:
+            return "Нет доступа"
+        case 404:
+            return "Сервис не найден"
+        case 500:
+            return "Ошибка сервера"
+        default:
+            return "Ошибка авторизации"
+    }
+}
+
 function LoginPage() {
 
     const navigate = useNavigate()
@@ -34,10 +51,7 @@ function LoginPage() {
             const data = await response.json()
 
             if (!response.ok) {
-                const text: string = data.message || ""
-                const matches = [...text.matchAll(/'msg':\s*'([^']+)'/g)]
-                const messages = matches.map(m => m[1])
-                throw new Error(messages.join(", ") || "Ошибка авторизации")
+                throw new Error(getAuthErrorMessage(response.status))
             }
 
             const {access_token} = data
