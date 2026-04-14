@@ -4,7 +4,6 @@ import {useNavigate} from "react-router-dom"
 import {fetchLogJsonArray} from "../api/fetchLogs"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import TelemetryLogFilters from "../components/TelemetryLogFilters"
-import {checkAuth} from "../components/TokenCheck"
 import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
 
 interface TelemetryLog {
@@ -29,11 +28,6 @@ export default function TelemetryLogPage() {
     useEffect(() => {
         let cancelled = false
         const run = async () => {
-            const authorized = await checkAuth()
-            if (!authorized) {
-                navigate("/login")
-                return
-            }
             try {
                 const listParams = buildLogListSearchParams(filterParams, page, limit)
                 const data = await fetchLogJsonArray("/log/telemetry", listParams)
