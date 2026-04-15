@@ -462,7 +462,7 @@ paths:
         502:
           $ref: '#/components/responses/LogStorageError'
 
-  /download/basic:
+  /log/download/basic:
     get:
       security:
         - BearerAuth: []
@@ -501,7 +501,7 @@ paths:
           $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
-  /download/telemetry:
+  /log/download/telemetry:
     get:
       security:
         - BearerAuth: []
@@ -544,7 +544,7 @@ paths:
           $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
-  /download/event:
+  /log/download/event:
     get:
       security:
         - BearerAuth: []
@@ -595,7 +595,7 @@ paths:
           $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
-  /download/safety:
+  /log/download/safety:
     get:
       security:
         - BearerAuth: []
@@ -646,7 +646,7 @@ paths:
           $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
-  /download/all:
+  /log/download/all:
     get:
       security:
         - BearerAuth: []
