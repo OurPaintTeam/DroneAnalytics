@@ -718,7 +718,7 @@ def download_telemetry_csv(
     if drone_id is not None:
         term_filters["drone_id"] = drone_id
 
-    fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude"]
+    fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude", "height"]
 
     rows_iter = _es_scroll_iter(
         "telemetry",
