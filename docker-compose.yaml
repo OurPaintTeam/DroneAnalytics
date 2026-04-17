@@ -14,6 +14,7 @@ services:
       - ./configs/backend.env
     depends_on:
       - elastic
+      - redis
     develop:
       watch:
         - action: rebuild
@@ -57,6 +58,17 @@ services:
         target: /etc/init-elastic.yaml
     depends_on:
       - elastic
+  
+  redis:
+    image: redis:8.6.2-alpine3.23
+    container_name: redis
+    expose:
+      - 6379
+    networks:
+     - DA-net
+    configs:
+      - source: redis
+        target: /usr/local/etc/redis/redis.conf
   proxy:
     image: nginx:1.29.4-alpine3.23
     container_name: proxy
@@ -100,6 +112,8 @@ configs:
     file: ./configs/init-elastic.yaml
   proxy:
     file: ./configs/proxy.conf
+  redis:
+    file: ./configs/redis.conf
 
 secrets:
   proxy.crt:
