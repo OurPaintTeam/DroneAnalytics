@@ -162,7 +162,7 @@ class TestThreat5DosResilience:
             payload = [{"timestamp": int(time.time() * 1000), "message": f"rl-probe-{i}"}]
             try:
                 # Явный таймаут предотвращает бесконечное ожидание в CI
-                resp = _post_basic(
+                resp = proxy_request(
                     "POST",
                     f"{proxy_base_url}/log/basic",
                     json=payload,
