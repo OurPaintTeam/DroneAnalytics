@@ -538,7 +538,7 @@ def get_basic(
     page: int = Query(1, ge=1),
     from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
     to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
-    message: str | None = Query(None, max_length=512, description="Полнотекстовый поиск по полю message"),
+    message: str | None = Query(None, max_length=1024, description="Полнотекстовый поиск по полю message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -602,7 +602,7 @@ def get_event(
     service: LogServiceType | None = Query(None),
     service_id: int | None = Query(None, ge=1),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=512, description="Полнотекстовый поиск по полю message"),
+    message: str | None = Query(None, max_length=1024, description="Полнотекстовый поиск по полю message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -643,7 +643,7 @@ def get_safety(
     service: LogServiceType | None = Query(None),
     service_id: int | None = Query(None, ge=1),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=512, description="Полнотекстовый поиск по полю message"),
+    message: str | None = Query(None, max_length=1024, description="Полнотекстовый поиск по полю message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -674,7 +674,7 @@ def get_safety(
 def download_basic_csv(
     from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
     to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
-    message: str | None = Query(None, max_length=512, description="Full-text search in message"),
+    message: str | None = Query(None, max_length=1024, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -718,7 +718,7 @@ def download_telemetry_csv(
     if drone_id is not None:
         term_filters["drone_id"] = drone_id
 
-    fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude"]
+    fieldnames = ["timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude", "height"]
 
     rows_iter = _es_scroll_iter(
         "telemetry",
@@ -747,7 +747,7 @@ def download_event_csv(
     service: LogServiceType | None = Query(None),
     service_id: int | None = Query(None, ge=1),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=512, description="Full-text search in message"),
+    message: str | None = Query(None, max_length=1024, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -793,7 +793,7 @@ def download_safety_csv(
     service: LogServiceType | None = Query(None),
     service_id: int | None = Query(None, ge=1),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=512, description="Full-text search in message"),
+    message: str | None = Query(None, max_length=1024, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
