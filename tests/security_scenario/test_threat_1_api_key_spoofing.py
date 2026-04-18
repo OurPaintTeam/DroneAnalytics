@@ -23,6 +23,7 @@ def _telemetry_payload(
 ) -> list[dict[str, Any]]:
     return [
         {
+            "apiVersion": "1.0.0",
             "timestamp": timestamp_ms,
             "drone": "delivery",
             "drone_id": drone_id,
@@ -32,6 +33,7 @@ def _telemetry_payload(
             "course": 120.0,
             "latitude": latitude,
             "longitude": longitude,
+            "height": 0.0,
         }
     ]
 
