@@ -7,7 +7,9 @@ services:
     expose:
       - 8080
     networks:
-      - DA-net
+      - all-net
+      - es-net
+      - rs-net
     secrets:
       - backend.yaml
     env_file:
@@ -25,7 +27,7 @@ services:
     expose:
       - 9200
     networks:
-      - DA-net
+      - es-net
     env_file:
       - ./configs/elastic.env
     volumes:
@@ -38,7 +40,7 @@ services:
     expose:
       - 5173
     networks:
-      - DA-net
+      - all-net
     configs:
       - source: frontend
         target: /etc/nginx/conf.d/default.conf
@@ -52,23 +54,28 @@ services:
       dockerfile: Dockerfile
     container_name: init-elastic
     networks:
-      - DA-net
+      - es-net
     configs:
       - source: init-elastic
         target: /etc/init-elastic.yaml
     depends_on:
       - elastic
   
-  redis:
+  redis: # Ес чо, он ругается на то, что по дэфолту в linux планировщик сильно переживает за память. Настраивается на хосте. Нам вроде как пока плевать, если начнет падать, мол, не могу сохранить дамп, то просто увеличить память
     image: redis:8.6.2-alpine3.23
     container_name: redis
     expose:
       - 6379
     networks:
-     - DA-net
+     - rs-net
     configs:
       - source: redis
         target: /usr/local/etc/redis/redis.conf
+    secrets:
+      - redis-sec.acl
+    volumes:
+      - rsdata:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
   proxy:
     image: nginx:1.29.4-alpine3.23
     container_name: proxy
@@ -76,7 +83,7 @@ services:
       - "80:80"
       - "443:443"
     networks:
-      - DA-net
+      - all-net
     configs:
       - source: proxy
         target: /etc/nginx/nginx.conf
@@ -100,7 +107,7 @@ services:
       dockerfile: Dockerfile
     container_name: tests
     networks:
-      - DA-net
+      - all-net
     depends_on:
       proxy:
         condition: service_started
@@ -122,10 +129,17 @@ secrets:
     file: ./secrets/proxy.key
   backend.yaml:
     file: ./secrets/backend.yaml
+  redis-sec.acl:
+    file: ./secrets/redis-sec.acl
 
 volumes:
   esdata:
+  rsdata:
 
 networks:
-  DA-net:
+  all-net:
+    driver: bridge
+  rs-net:
+    driver: bridge
+  es-net:
     driver: bridge

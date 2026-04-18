@@ -20,6 +20,13 @@ users:
 `password_hash` должен быть результатом `python tools/make_hash.py <password>`.  
 
 `users` можно задавать и в короткой форме, и в виде объекта с `password_hash`.
+## redis-sec.acl
+Конфиг с паролями пользователей redis. Вот пример:
+```acl
+user root on >soStrongRoot allcommands allkeys allchannels
+user app on >soStrongApp resetchannels -@all +@read +@write +@string +@hash +@list +@set +@sortedset +@stream +@fast +@transaction +@connection ~*
+user default off nopass -@all
+```
 ## Тестовый запуск
 Для того, чтобы легко и просто, для локального тестирования, сконфигурировать секреты, можно запустить команду из корня проекта:
 ```shell
