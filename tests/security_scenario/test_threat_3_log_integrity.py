@@ -85,7 +85,7 @@ class TestThreat3LogIntegrity:
         before = count_basic_docs_by_message(marker)
         assert before == 1
 
-        delete_resp = requests.post(
+        requests.post(
             f"{ELASTIC_URL}/basic/_delete_by_query",
             json={"query": {"match_phrase": {"message": marker}}},
             timeout=5,

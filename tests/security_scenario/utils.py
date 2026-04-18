@@ -33,7 +33,7 @@ def elastic_health_check(timeout: int = 60) -> bool:
             if resp.status_code == 200 and resp.json().get("status") in {"green", "yellow"}:
                 return True
         except requests.RequestException:
-            pass
+            continue
         time.sleep(1)
     return False
 
