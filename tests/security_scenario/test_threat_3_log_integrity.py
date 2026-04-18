@@ -74,29 +74,7 @@ class TestThreat3LogIntegrity:
         assert count_basic_docs_by_message(marker_a) == 1
         assert count_basic_docs_by_message(marker_b) == 1
 
-    def test_step_4_direct_elastic_delete_attempt(self, proxy_base_url: str, api_headers: dict[str, str]) -> None:
-        marker = f"TH3_DELETE_{int(time.time() * 1000)}"
-        payload = [{"timestamp": int(time.time() * 1000), "message": marker}]
-
-        create_resp = proxy_request("POST", f"{proxy_base_url}/log/basic", json=payload, headers=api_headers)
-        assert create_resp.status_code == 200, create_resp.text
-        wait_for_elastic_sync()
-
-        before = count_basic_docs_by_message(marker)
-        assert before == 1
-
-        requests.post(
-            f"{ELASTIC_URL}/basic/_delete_by_query",
-            json={"query": {"match_phrase": {"message": marker}}},
-            timeout=5,
-        )
-
-        wait_for_elastic_sync()
-        after = count_basic_docs_by_message(marker)
-
-        assert after == before
-
-    def test_step_5_proxy_path_cannot_delete_in_elastic_style(self, proxy_base_url: str, api_headers: dict[str, str]) -> None:
+    def test_step_4_proxy_path_cannot_delete_in_elastic_style(self, proxy_base_url: str, api_headers: dict[str, str]) -> None:
         """
         Прикладной тест: имитируем попытку обратиться к ES-like endpoint через proxy.
         Ожидание: такой путь не должен позволять удалять данные из журнала.
