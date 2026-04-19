@@ -8,5 +8,6 @@ DRONE_CORS_ORIGINS=*
 ELASTIC_URL=http://elastic:9200
 ```
 4) `elastic.env` — переменные окружения для Elasticsearch.
-5) `init-elastic.yaml` — конфиг для init-контейнера Elasticsearch. Поддерживает поле:
+5) `init-elastic.yaml` — конфиг для init-контейнера ElasticSearch. Поддерживает поле:
 `elastic_url: http://elastic:9200`
+6) `redis.conf` - конфиг для Redis
