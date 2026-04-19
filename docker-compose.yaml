@@ -108,6 +108,8 @@ services:
     container_name: tests
     networks:
       - all-net
+      - rs-net
+      - es-net
     depends_on:
       proxy:
         condition: service_started
