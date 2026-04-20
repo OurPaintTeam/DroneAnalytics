@@ -58,7 +58,7 @@ export async function checkAuth(): Promise<boolean> {
     const token = localStorage.getItem("access_token")
 
     if (!token) {
-        return await refreshAccessToken()
+        return false
     }
 
     const isValid = await validateTokenOnServer(token)
