@@ -3,7 +3,7 @@ import { create } from "zustand"
 export type NotificationType = "success" | "error" | "info"
 
 export interface Notification {
-    id: number
+    id: string
     type: NotificationType
     message: string
 }
@@ -11,7 +11,7 @@ export interface Notification {
 interface NotificationState {
     notifications: Notification[]
     add: (type: NotificationType, message: string) => void
-    remove: (id: number) => void
+    remove: (id: string) => void
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
@@ -21,7 +21,11 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         set((state) => ({
             notifications: [
                 ...state.notifications,
-                { id: Date.now(), type, message }
+                {
+                    id: crypto.randomUUID(),
+                    type,
+                    message
+                }
             ]
         })),
 
