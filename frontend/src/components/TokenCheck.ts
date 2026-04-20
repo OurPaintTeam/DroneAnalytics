@@ -11,13 +11,7 @@ async function validateTokenOnServer(token: string): Promise<boolean> {
               }
           })*/
         if (token) {
-            const res = {
-                ok: true,
-                json: async () => ({success: true})
-            };
-
-
-            return res.ok
+            return true
         }
         return false
     } catch {
