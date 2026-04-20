@@ -872,8 +872,6 @@ components:
       properties:
         access_token:
           $ref: '#/components/schemas/access_token'
-        refresh_token:
-          $ref: '#/components/schemas/refresh_token'
         token_type:
           type: string
           default: "Bearer"
