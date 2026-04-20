@@ -98,6 +98,20 @@ class TestAuthRefreshSuccess:
         assert resp.status_code == 200
         assert resp.json()["token_type"] == "Bearer"
 
+    def test_refresh_from_cookie_without_json_body(self, auth_credentials: Dict[str, str]):
+        """RF-05: refresh-token можно передать только через cookie без JSON-тела."""
+        login_resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
+        assert login_resp.status_code == 200
+        refresh_token = login_resp.json()["refresh_token"]
+
+        resp = auth_refresh(
+            BACKEND_URL,
+            payload=None,
+            cookies={"refresh_token": refresh_token},
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["token_type"] == "Bearer"
 
 # =============================================================================
 # Тесты валидации входных данных (Pydantic модели)
