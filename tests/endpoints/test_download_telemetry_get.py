@@ -42,7 +42,7 @@ def insert_telemetry_data(api_headers: Dict[str, str], records: List[Dict[str, A
 # =============================================================================
 
 EXPECTED_FIELDNAMES = [
-    "timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude"
+    "timestamp", "drone", "drone_id", "battery", "pitch", "roll", "course", "latitude", "longitude", "height"
 ]
 
 BASE_TIMESTAMP = 1700000000000  # Базовая метка времени для тестов
