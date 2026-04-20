@@ -2,14 +2,15 @@ import {useState, useEffect} from "react"
 import {useNavigate} from "react-router-dom"
 
 import OP_logo from "../assets/OP_logo.svg"
-import SPbguLogo from "../assets/spbgu_logo.svg"
 import {RED, BACKEND_URL} from "../config.ts"
 import {checkAuth} from "../components/TokenCheck.ts"
+import {checkBackend} from "../api/fetchLogs.ts";
+import {handleApiErrorBackend} from "../components/notify.ts";
 
 function getAuthErrorMessage(status: number): string {
     switch (status) {
         case 400:
-            return "Неверный запрос"
+            return "Меньше 4 символов в логине или меньше 8 символов в пароле"
         case 401:
             return "Неверный логин или пароль"
         case 403:
@@ -34,6 +35,14 @@ function LoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
+
+        try {
+            await checkBackend()
+        } catch (error) {
+            const errorMessage = handleApiErrorBackend(error)
+            setError(errorMessage)
+            return
+        }
 
         try {
             const response = await fetch(`${BACKEND_URL}/auth/login`, {
@@ -84,14 +93,10 @@ function LoginPage() {
                     <div className="flex items-center justify-center gap-10">
                         <div className="flex items-center gap-2">
                             <img src={OP_logo} alt="OP Logo" className="h-9"/>
-                            <span className="text-sm font-semibold tracking-tight leading-none">
-                                <span style={{color: RED}}>OurPaint</span>
-                                 <br/>
-                                 <span className="text-gray-800">Company</span>
+                            <span className="text-2xl font-semibold tracking-tight leading-none">
+                                <span style={{color: RED}}>OurPaint Company</span>
                              </span>
                         </div>
-                        <div className="h-10 w-[1px] bg-gray-300"/>
-                        <img src={SPbguLogo} alt="SPbGU Logo" className="h-20"/>
                     </div>
                     <div className="w-full h-[1px] bg-gray-300 my-1"/>
                     <div className="text-center">

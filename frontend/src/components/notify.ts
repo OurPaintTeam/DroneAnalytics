@@ -22,6 +22,21 @@ export class ApiError extends Error {
     }
 }
 
+const errorMessages: Record<ApiErrorCode, string> = {
+    NO_TOKEN: "Нет токена — выполните вход",
+    UNAUTHORIZED: "Сессия истекла",
+    FORBIDDEN: "Нет доступа",
+    NOT_FOUND: "Данные не найдены",
+    NETWORK_ERROR: "Нет соединения с сервером",
+    BACKEND_DOWN: "Backend не отвечает",
+    SERVER_ERROR: "Ошибка сервера",
+    INVALID_RESPONSE: "Некорректный ответ сервера"
+}
+
+function getErrorMessage(code: ApiErrorCode): string {
+    return errorMessages[code] ?? "Ошибка запроса"
+}
+
 export function handleAuthError(error: unknown, navigate: any) {
     if (error instanceof Error && error.message === "NO_TOKEN") {
         logout()
@@ -35,18 +50,19 @@ export function handleApiError(error: unknown) {
         return
     }
 
-    const map: Record<ApiErrorCode, string> = {
-        NO_TOKEN: "Нет токена — выполните вход",
-        UNAUTHORIZED: "Сессия истекла",
-        FORBIDDEN: "Нет доступа",
-        NOT_FOUND: "Данные не найдены",
-        NETWORK_ERROR: "Нет соединения с сервером",
-        BACKEND_DOWN: "Backend не отвечает",
-        SERVER_ERROR: "Ошибка сервера",
-        INVALID_RESPONSE: "Некорректный ответ сервера"
+    notifyError(getErrorMessage(error.code))
+}
+
+export function handleApiErrorBackend(error: unknown): string {
+    if (error instanceof ApiError) {
+        return getErrorMessage(error.code)
     }
 
-    notifyError(map[error.code] ?? "Ошибка запроса")
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    return "Неизвестная ошибка"
 }
 
 export function notifyError(message: string) {

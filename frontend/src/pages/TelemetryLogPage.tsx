@@ -5,7 +5,7 @@ import {fetchLogJsonArray} from "../api/fetchLogs"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import TelemetryLogFilters from "../components/TelemetryLogFilters"
 import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
-import {handleApiError, handleAuthError, notifyError} from "../components/notify"
+import {handleApiError, handleAuthError} from "../components/notify"
 
 interface TelemetryLog {
     timestamp: number
@@ -33,7 +33,6 @@ export default function TelemetryLogPage() {
                 const listParams = buildLogListSearchParams(filterParams, page, limit)
                 const data = await fetchLogJsonArray("/log/telemetry", listParams)
                 if (!cancelled) setLogs(data as TelemetryLog[])
-                notifyError("Привет")
             } catch (e: any) {
                 console.error("Ошибка загрузки журнала:", e)
 
