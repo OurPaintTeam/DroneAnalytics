@@ -533,3 +533,58 @@ class TestGetSafetyLogs:
         # Timestamp должен быть целым числом и точно совпадать
         assert isinstance(logs[0]["timestamp"], int)
         assert logs[0]["timestamp"] == fixed_timestamp
+
+    def test_get_safety_filters_service_service_id_severity_and_message(
+        self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
+    ):
+        """TC-SAFETY-021: Комбинированная фильтрация query-параметрами."""
+        ts = get_timestamp_ms()
+        payload = [
+            create_event_payload(
+                event_type="safety_event",
+                timestamp=ts + 1,
+                service="registry",
+                service_id=77,
+                severity="critical",
+                message="target safety",
+            ),
+            create_event_payload(
+                event_type="safety_event",
+                timestamp=ts + 2,
+                service="registry",
+                service_id=77,
+                severity="warning",
+                message="other safety",
+            ),
+            create_event_payload(
+                event_type="safety_event",
+                timestamp=ts + 3,
+                service="operator",
+                service_id=77,
+                severity="critical",
+                message="target safety",
+            ),
+        ]
+        post_event_logs(BACKEND_URL, api_headers, payload)
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/safety",
+            headers=bearer_headers,
+            params={
+                "service": "registry",
+                "service_id": 77,
+                "severity": "critical",
+                "message": "target",
+                "limit": 10,
+                "page": 1,
+            },
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        logs = resp.json()
+        assert len(logs) == 1
+        assert logs[0]["service"] == "registry"
+        assert logs[0]["service_id"] == 77
+        assert logs[0]["severity"] == "critical"
+        assert "target" in logs[0]["message"]

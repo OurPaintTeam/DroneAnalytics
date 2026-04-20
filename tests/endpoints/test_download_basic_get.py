@@ -207,6 +207,27 @@ class TestDownloadBasicFiltering:
         rows = parse_csv_from_response(resp)
         assert len(rows) == 0
 
+    def test_filter_by_message_substring(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
+        """TC-BASIC-25: Фильтрация по `message` в download/basic."""
+        logs = [
+            {"timestamp": 1000, "message": "download-target"},
+            {"timestamp": 2000, "message": "download-other"},
+        ]
+        resp = post_basic_logs(BACKEND_URL, api_headers, logs)
+        assert resp.status_code in (200, 207), f"Failed to insert logs: {resp.text}"
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/download/basic",
+            params={"message": "target"},
+            headers=bearer_headers,
+            timeout=10,
+        )
+        assert resp.status_code == 200
+        rows = parse_csv_from_response(resp)
+        assert len(rows) == 1
+        assert rows[0]["message"] == "download-target"
+
 
 class TestDownloadBasicCSVEscaping:
     """Тесты экранирования специальных символов в CSV."""

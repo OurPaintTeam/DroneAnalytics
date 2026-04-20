@@ -110,6 +110,29 @@ class TestTelemetryBasic:
         timestamps = [log["timestamp"] for log in logs]
         assert timestamps == sorted(timestamps, reverse=True), "Логи не отсортированы по убыванию времени"
 
+    def test_TC_TEL_004_filter_by_drone_and_drone_id(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
+        """TC-TEL-004: Фильтрация по query-параметрам drone/drone_id."""
+        base_ts = get_timestamp_ms()
+        records = [
+            create_telemetry_payload(timestamp=base_ts + 1, drone="delivery", drone_id=1),
+            create_telemetry_payload(timestamp=base_ts + 2, drone="inspector", drone_id=7),
+            create_telemetry_payload(timestamp=base_ts + 3, drone="inspector", drone_id=8),
+        ]
+        insert_telemetry_records(records, api_headers)
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/telemetry",
+            headers=bearer_headers,
+            params={"drone": "inspector", "drone_id": 7, "limit": 10, "page": 1},
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        logs = resp.json()
+        assert len(logs) == 1
+        assert logs[0]["drone"] == "inspector"
+        assert logs[0]["drone_id"] == 7
+
 
 # =============================================================================
 # Тест-кейсы: пагинация

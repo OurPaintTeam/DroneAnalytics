@@ -146,6 +146,10 @@ class TestAuthRefreshValidation:
         # FastAPI вернёт 400 при невозможности распарсить тело
         assert resp.status_code == 400
 
+    def test_refresh_missing_body_and_cookie(self):
+        """RF-17: Без JSON и без cookie backend возвращает Missing refresh token."""
+        resp = auth_refresh(BACKEND_URL, payload=None, timeout=5)
+        assert_api_error(resp, 401, message_exact="Missing refresh token")
 
 # =============================================================================
 # Тесты валидации JWT-логики (уровень приложения)
