@@ -195,22 +195,31 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
 
                     {columns ? (
                         <table className="w-full table-auto border-collapse text-left">
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-white">
                             <tr>
                                 {columns.map(col => (
-                                    <th key={String(col.key)} className="border-b px-2 py-1 font-medium text-gray-700">
+                                    <th
+                                        key={String(col.key)}
+                                        className="border-b px-2 py-2 font-medium text-gray-700 bg-white"
+                                    >
                                         {col.label}
                                     </th>
                                 ))}
                             </tr>
                             </thead>
+
                             <tbody>
                             {safeLogs.map((log, i) => (
                                 <tr key={i} className="hover:bg-gray-50">
                                     {columns.map(col => (
-                                        <td key={String(col.key)} className="px-2 py-1 border-l-2"
-                                            style={{borderColor: RED}}>
-                                            {col.render ? col.render(log[col.key], log) : String(log[col.key])}
+                                        <td
+                                            key={String(col.key)}
+                                            className="px-2 py-1 border-l-2 bg-white"
+                                            style={{ borderColor: RED }}
+                                        >
+                                            {col.render
+                                                ? col.render(log[col.key], log)
+                                                : String(log[col.key])}
                                         </td>
                                     ))}
                                 </tr>
