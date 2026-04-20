@@ -336,6 +336,40 @@ class TestGetEventData:
         for sev in severities:
             assert sev in returned_severities
 
+    def test_filter_by_service_service_id_severity_and_message(
+        self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
+    ):
+        """TC_EVENT_017: Комбинированная фильтрация query-параметрами."""
+        ts = get_timestamp_ms()
+        events = [
+            create_event_payload(ts + 1, "GCS", 10, "target payload", "warning"),
+            create_event_payload(ts + 2, "GCS", 10, "non target", "info"),
+            create_event_payload(ts + 3, "aggregator", 10, "target payload", "warning"),
+        ]
+        post_event_logs(BACKEND_URL, api_headers, events)
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/event",
+            headers=bearer_headers,
+            params={
+                "service": "GCS",
+                "service_id": 10,
+                "severity": "warning",
+                "message": "target",
+                "limit": 10,
+                "page": 1,
+            },
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        logs = resp.json()
+        assert len(logs) == 1
+        assert logs[0]["service"] == "GCS"
+        assert logs[0]["service_id"] == 10
+        assert logs[0]["severity"] == "warning"
+        assert "target" in logs[0]["message"]
+
     def test_different_services_returned(
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
     ):

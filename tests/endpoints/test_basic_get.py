@@ -412,3 +412,24 @@ class TestGetBasicLargeDataset:
         # Проверка сортировки (сообщения должны идти от "Large_149" до "Large_0")
         expected_order = [f"Large_{i}" for i in range(total_logs - 1, -1, -1)]
         assert all_messages == expected_order
+
+class TestGetBasicFilters:
+    """Тесты параметров фильтрации GET /log/basic."""
+
+    def test_message_substring_filter(self, bearer_headers: Dict[str, str]):
+        """TC-021: Параметр `message` возвращает только совпадающие записи."""
+        base_ts = get_timestamp_ms()
+        write_basic_logs(1, base_timestamp=base_ts + 1, message_prefix="alpha target log")
+        write_basic_logs(1, base_timestamp=base_ts + 2, message_prefix="beta unrelated log")
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/basic",
+            headers=bearer_headers,
+            params={"message": "target"},
+            timeout=10,
+        )
+        assert resp.status_code == 200
+        logs = resp.json()
+        assert len(logs) == 1
+        assert "target" in logs[0]["message"]
