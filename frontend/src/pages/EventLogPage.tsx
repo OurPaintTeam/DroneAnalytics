@@ -5,6 +5,7 @@ import {fetchLogJsonArray} from "../api/fetchLogs"
 import EventSafetyLogFilters from "../components/EventSafetyLogFilters"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
+import {handleApiError, handleAuthError} from "../components/notify.ts";
 
 interface EventLog {
     timestamp: number
@@ -20,7 +21,6 @@ export default function EventLogPage() {
     const [page, setPage] = useState(1)
     const [limit, setLimit] = useState<LogPageSize>(LOG_PAGE_DEFAULT)
     const navigate = useNavigate()
-    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         let cancelled = false
@@ -30,11 +30,8 @@ export default function EventLogPage() {
                 const data = await fetchLogJsonArray("/log/event", listParams)
                 if (!cancelled) setLogs(data as EventLog[])
             } catch (e: any) {
-                if (cancelled) return
-                console.error("Ошибка загрузки журнала:", e)
-
-                setLogs([])
-                setError(e?.message || "Сервер недоступен")
+                handleApiError(e)
+                handleAuthError(e, navigate)
             }
         }
         void run()
@@ -77,7 +74,6 @@ export default function EventLogPage() {
                     setPage(1)
                 },
             }}
-            error={error}
         />
     )
 }

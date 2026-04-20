@@ -5,6 +5,7 @@ import "./index.css"
 
 import TopBar from "./components/TopBar.tsx"
 import ProtectedRoute from "./components/ProtectedRoute"
+import NotificationContainer from "./components/NotificationContainer"
 
 import EventLog from "./pages/EventLogPage.tsx";
 import SecurityLog from "./pages/SecurityLogPage.tsx";
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
+        <NotificationContainer />
         <RouterProvider router={router}/>
     </StrictMode>
 )

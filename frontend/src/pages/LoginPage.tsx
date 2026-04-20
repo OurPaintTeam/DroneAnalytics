@@ -43,8 +43,8 @@ function LoginPage() {
                 },
                 credentials: "include",
                 body: JSON.stringify({
-                    username: username,
-                    password: password
+                    username,
+                    password
                 })
             })
 
@@ -54,9 +54,10 @@ function LoginPage() {
                 throw new Error(getAuthErrorMessage(response.status))
             }
 
-            const {access_token} = data
-            localStorage.setItem("access_token", access_token)
-            navigate("/event")
+            localStorage.setItem("access_token", data.access_token)
+
+            navigate("/event", { replace: true })
+
         } catch (err: any) {
             setError(err.message || "Ошибка соединения с сервером")
         }
@@ -64,14 +65,16 @@ function LoginPage() {
 
     useEffect(() => {
         const check = async () => {
-            const authorized = await checkAuth()
-            if (authorized) {
-                navigate("/event")
+            try {
+                await checkAuth()
+                navigate("/event", { replace: true })
+            } catch {
+                // пользователь не авторизован — остаётся на login
             }
         }
 
         check()
-    }, [])
+    }, [navigate])
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-white px-4">

@@ -5,6 +5,7 @@ import {fetchLogJsonArray} from "../api/fetchLogs"
 import EventSafetyLogFilters from "../components/EventSafetyLogFilters"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
+import {handleApiError, handleAuthError} from "../components/notify.ts";
 
 interface SecurityLog {
     timestamp: number
@@ -20,7 +21,6 @@ export default function SecurityLogPage() {
     const [page, setPage] = useState(1)
     const [limit, setLimit] = useState<LogPageSize>(LOG_PAGE_DEFAULT)
     const navigate = useNavigate()
-    const [error,setError] = useState<string | null>(null)
 
     useEffect(() => {
         let cancelled = false
@@ -34,11 +34,8 @@ export default function SecurityLogPage() {
                 }
 
             } catch (e: any) {
-                if (cancelled) return
-                console.error("Ошибка загрузки журнала:", e)
-
-                setLogs([])
-                setError(e?.message || "Сервер недоступен")
+                handleApiError(e)
+                handleAuthError(e, navigate)
             }
         }
         void run()
@@ -81,7 +78,6 @@ export default function SecurityLogPage() {
                     setPage(1)
                 },
             }}
-            error={error}
         />
     )
 }

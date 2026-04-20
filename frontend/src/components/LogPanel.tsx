@@ -2,6 +2,8 @@ import * as React from "react"
 import {useEffect, useRef, useState} from "react"
 import {BACKEND_URL, RED} from "../config"
 import {LOG_PAGE_SIZE_OPTIONS, type LogPageSize} from "../logPagination"
+import {ApiError, ApiErrorCode, handleApiError} from "./notify.ts";
+import {checkAuth} from "./TokenCheck.ts";
 
 export interface Column<T> {
     key: keyof T
@@ -26,7 +28,6 @@ export interface LogPanelProps<T> {
     filters?: React.ReactNode
     onDownload?: () => Promise<void>
     pagination?: LogPanelPagination
-    error?: string | null
 }
 
 export const downloadLogs = async (
@@ -36,8 +37,10 @@ export const downloadLogs = async (
     const access = localStorage.getItem("access_token")
 
     if (!access) {
-        throw new Error("401: Не авторизован")
+        throw new ApiError(ApiErrorCode.NO_TOKEN)
     }
+
+    await checkAuth()
 
     const qs = params?.toString() ?? ""
     const url = `${BACKEND_URL}${urlPath}${qs ? `?${qs}` : ""}`
@@ -50,22 +53,21 @@ export const downloadLogs = async (
             headers: { Authorization: `Bearer ${access}` },
         })
     } catch {
-        // только реальные сетевые ошибки
-        throw new Error("NETWORK: Сервер недоступен или нет соединения")
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
     }
 
     if (!res.ok) {
         switch (res.status) {
             case 401:
-                throw new Error("401: Не авторизован")
+                throw new ApiError(ApiErrorCode.UNAUTHORIZED)
             case 403:
-                throw new Error("403: Нет доступа")
+                throw new ApiError(ApiErrorCode.FORBIDDEN)
             case 404:
-                throw new Error("404: Логи не найдены")
+                throw new ApiError(ApiErrorCode.NOT_FOUND)
             case 500:
-                throw new Error("500: Сервер временно недоступен")
+                throw new ApiError(ApiErrorCode.SERVER_ERROR)
             default:
-                throw new Error(`${res.status}: Ошибка загрузки логов`)
+                throw new ApiError(ApiErrorCode.SERVER_ERROR)
         }
     }
 
@@ -99,8 +101,6 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
     const logsEndRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const safeLogs = Array.isArray(logs) ? logs : []
-    const [error, setError] = useState<string | null>(null)
-
     const [showFilters, setShowFilters] = useState(false)
 
     useEffect(() => {
@@ -112,13 +112,11 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
     }, [safeLogs, pagination, pagination?.page])
 
     const handleDownload = async () => {
-        setError(null)
-
         try {
             if (!onDownload) return
             await onDownload()
-        } catch (e: any) {
-            setError(e.message || "Ошибка скачивания")
+        } catch (e) {
+            handleApiError(e)
         }
     }
 
@@ -194,11 +192,6 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
                     ref={scrollRef}
                     className="flex-1 overflow-y-auto px-6 py-4 space-y-2 font-mono text-sm text-gray-600"
                 >
-                    {error && (
-                        <div className="mb-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-                            {error}
-                        </div>
-                    )}
 
                     {columns ? (
                         <table className="w-full table-auto border-collapse text-left">

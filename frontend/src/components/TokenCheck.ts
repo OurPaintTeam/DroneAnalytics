@@ -1,15 +1,16 @@
-import { BACKEND_URL } from "../config"
+import {BACKEND_URL} from "../config"
+import {ApiError, ApiErrorCode} from "./notify.ts";
 
 async function validateTokenOnServer(token: string): Promise<boolean> {
     try {
-      /*  const res = await fetch(`${BACKEND_URL}/auth/validate`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`
-            }
-        })*/
-        if(token) {
+        /*  const res = await fetch(`${BACKEND_URL}/auth/validate`, {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`
+              }
+          })*/
+        if (token) {
             const res = {
                 ok: true,
                 json: async () => ({success: true})
@@ -54,20 +55,37 @@ export async function refreshAccessToken(): Promise<boolean> {
     }
 }
 
-export async function checkAuth(): Promise<boolean> {
+export async function checkAuth(): Promise<void> {
     const token = localStorage.getItem("access_token")
 
     if (!token) {
-        return false
+        throw new ApiError(ApiErrorCode.NO_TOKEN)
     }
 
+    // 1. backend validate
     const isValid = await validateTokenOnServer(token)
 
-    if (isValid) {
-        return true
+    if (isValid) return
+
+    // 2. refresh
+    const refreshed = await refreshAccessToken()
+
+    if (!refreshed) {
+        throw new ApiError(ApiErrorCode.UNAUTHORIZED)
     }
 
-    return await refreshAccessToken()
+    // 3. повторная проверка
+    const newToken = localStorage.getItem("access_token")
+
+    const isValidAfter = await validateTokenOnServer(newToken!)
+
+    if (isValidAfter) return
+
+    throw new ApiError(ApiErrorCode.UNAUTHORIZED)
+}
+
+export function getAccessToken(): string | null {
+    return localStorage.getItem("access_token")
 }
 
 export async function logout(): Promise<void> {
@@ -79,16 +97,12 @@ export async function logout(): Promise<void> {
                 method: "POST",
                 credentials: "include",
                 headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                    Authorization: `Bearer ${token}`,
+                },
             })
         }
     } catch {
     } finally {
         localStorage.removeItem("access_token")
     }
-}
-
-export function getAccessToken(): string | null {
-    return localStorage.getItem("access_token")
 }
