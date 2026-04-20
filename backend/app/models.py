@@ -54,6 +54,12 @@ class TokenPairResponse(StrictModel):
     expires_in: int
 
 
+class AccessTokenResponse(StrictModel):
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+
+
 class BasicLogItem(StrictModel):
     timestamp: int = Field(ge=0)
     message: str = Field(min_length=1, max_length=1024)
