@@ -43,17 +43,6 @@ class LoginRequest(StrictModel):
     password: str = Field(min_length=8, max_length=64)
 
 
-class RefreshTokenRequest(StrictModel):
-    refresh_token: str = Field(min_length=16, max_length=1024)
-
-
-class TokenPairResponse(StrictModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "Bearer"
-    expires_in: int
-
-
 class AccessTokenResponse(StrictModel):
     access_token: str
     token_type: str = "Bearer"
