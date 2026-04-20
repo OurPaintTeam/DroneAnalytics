@@ -5,7 +5,6 @@ import NikitaPhoto from "../assets/Nikita.jpg"
 import IvanPhoto from "../assets/Ivan.jpg"
 
 import OP_logo from "../assets/OP_logo.svg"
-import SPbguLogo from "../assets/spbgu_logo.svg"
 
 import {RED} from "../config.ts"
 
@@ -68,9 +67,6 @@ const AboutPage = () => {
                                         <br/>
                         <span className="text-gray-700">Company</span>
                         </span>
-                </div>
-                <div className="flex flex-col items-center">
-                    <img src={SPbguLogo} alt="SPbGU" className="h-25 mb-2"/>
                 </div>
             </div>
         </div>

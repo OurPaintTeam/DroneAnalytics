@@ -2,7 +2,6 @@ import {Outlet, NavLink} from "react-router-dom"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
-import SPbguLogo from "../assets/spbgu_logo.svg"
 import OP_logo from "../assets/OP_logo.svg"
 import {RED } from "../config.ts"
 import { logout } from "./TokenCheck.ts"
@@ -56,7 +55,6 @@ function TopBarLayout() {
             <span style={{color: RED}}>OurPaint</span> <br />Company
           </span>
 
-                    <img src={SPbguLogo} alt="SPbGU Logo" className="h-20 ml-3"/>
                 </div>
 
                 <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
