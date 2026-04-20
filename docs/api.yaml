@@ -9,7 +9,7 @@ info:
   license:
     name: MIT License
     url: https://opensource.org/licenses/MIT
-  version: 1.0.0
+  version: 1.1.0
 
 servers:
   - url: https://localhost/api
@@ -24,6 +24,8 @@ tags:
     description: logs.
   - name: analytics
     description: analytics for frontend.
+  - name: download
+    description: download some data
 
 security:
   - BearerAuth: []
@@ -43,10 +45,15 @@ paths:
       responses:
         200:
           description: Tokens issued
+          headers:
+            Set-Cookie:
+              description: refresh token
+              schema:
+                $ref: '#/components/schemas/refresh_token'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
+                $ref: '#/components/schemas/Token'
         400:
           $ref: '#/components/responses/ValidationError'
         401:
@@ -54,25 +61,23 @@ paths:
   /auth/refresh:
     post:
       tags: [auth]
-      summary: refresh access token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  $ref: '#/components/schemas/refresh_token'
-              required: [refresh_token]
+      summary: update access token
+      security:
+        - refresh: []
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: true
+          description: refresh token
+          schema:
+            $ref: '#/components/schemas/refresh_token'
       responses:
         200:
           description: New access token issued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
+                $ref: '#/components/schemas/Token'
         400:
           $ref: '#/components/responses/ValidationError'
         401:
@@ -83,25 +88,9 @@ paths:
       summary: logout
       security:
         - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  $ref: '#/components/schemas/refresh_token'
-              required: [refresh_token]
       responses:
         200:
-          description: Logs accepted successfully
-          content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/AcceptedResponse'
-        401:
-          $ref: '#/components/responses/UnauthorizedError'
+          description: OK
 
   /log/telemetry:
     post:
@@ -141,10 +130,18 @@ paths:
                     $ref: '#/components/schemas/latitude'
                   longitude:
                     $ref: '#/components/schemas/longitude'
+                  height:
+                    $ref: '#/components/schemas/height'
                 required: [ timestamp, drone, drone_id, latitude, longitude, apiVersion ]
       responses:
         200:
-          description: Logs accepted successfully
+          description: All logs accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        207:
+          description: Some logs were rejected
           content:
             application/json:
               schema:
@@ -158,7 +155,7 @@ paths:
     get:
       security:
         - BearerAuth: []
-      tags: [ log ]
+      tags: [ analytics ]
       summary: get telemetry logs
       description: Returns telemetry logs sorted by timestamp
       parameters:
@@ -170,6 +167,23 @@ paths:
           name: page
           schema:
             $ref: '#/components/schemas/page'
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: drone
+          schema:
+            $ref: '#/components/schemas/drone'
+        - in: query
+          name: drone_id
+          schema:
+            $ref: '#/components/schemas/id'
+          
       responses:
         200:
           description: OK
@@ -199,9 +213,13 @@ paths:
                       $ref: '#/components/schemas/latitude'
                     longitude:
                       $ref: '#/components/schemas/longitude'
+                    height:
+                      $ref: '#/components/schemas/height'
                   required: [ timestamp, drone, drone_id, latitude, longitude ]
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
   /log/basic:
@@ -222,7 +240,13 @@ paths:
                 $ref: '#/components/schemas/BasicLog'
       responses:
         200:
-          description: Logs accepted successfully
+          description: All logs accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        207:
+          description: Some logs were rejected
           content:
             application/json:
               schema:
@@ -236,20 +260,30 @@ paths:
     get:
       security:
         - BearerAuth: []
-      tags: [ log ]
+      tags: [ analytics ]
       summary: get basic logs
       description: Returns basic logs sorted by timestamp
       parameters:
         - in: query
           name: limit
-          required: false
           schema:
             $ref: '#/components/schemas/limit'
         - in: query
           name: page
-          required: false
           schema:
             $ref: '#/components/schemas/page'
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message' # Now - maxLength=512 - It' wrong. maxLength=1024
       responses:
         200:
           description: OK
@@ -261,6 +295,8 @@ paths:
                   $ref: '#/components/schemas/BasicLog'
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
   /log/event:
@@ -299,7 +335,13 @@ paths:
                 required: [timestamp, service, service_id, message, apiVersion]
       responses:
         200:
-          description: Logs accepted successfully
+          description: All logs accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        207:
+          description: Some logs were rejected
           content:
             application/json:
               schema:
@@ -313,7 +355,7 @@ paths:
     get:
       security:
         - BearerAuth: []
-      tags: [ log ]
+      tags: [ analytics ]
       summary: get event logs
       description: Returns event logs sorted by timestamp
       parameters:
@@ -325,6 +367,30 @@ paths:
           name: page
           schema:
             $ref: '#/components/schemas/page'
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: service
+          schema:
+            $ref: '#/components/schemas/service'
+        - in: query
+          name: service_id
+          schema:
+            $ref: '#/components/schemas/id'
+        - in: query
+          name: severity
+          schema:
+            $ref: '#/components/schemas/severity'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message' # Now - maxLength=512 - It' wrong. maxLength=1024
       responses:
         200:
           description: OK
@@ -336,13 +402,15 @@ paths:
                   $ref: '#/components/schemas/GetEventLog'
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
   /log/safety:
     get:
       security:
         - BearerAuth: []
-      tags: [ log ]
+      tags: [ analytics ]
       summary: get safety events
       description: Returns safety events sorted by timestamp
       parameters:
@@ -354,6 +422,30 @@ paths:
           name: page
           schema:
             $ref: '#/components/schemas/page'
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: service
+          schema:
+            $ref: '#/components/schemas/service'
+        - in: query
+          name: service_id
+          schema:
+            $ref: '#/components/schemas/id'
+        - in: query
+          name: severity
+          schema:
+            $ref: '#/components/schemas/severity'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message' # Now - maxLength=512 - It' wrong. maxLength=1024
       responses:
         200:
           description: OK
@@ -365,6 +457,228 @@ paths:
                   $ref: '#/components/schemas/GetEventLog'
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+
+  /log/download/basic:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics, download ]
+      summary: download basic logs
+      description: Download basic logs as CSV (by timestamp range)
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message' # Now - maxLength=512 - It' wrong. maxLength=1024
+      responses:
+        200:
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Specifies the filename in the format "dasic_logs_{from_ts}_{to_ts}.csv"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+  /log/download/telemetry:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics, download ]
+      summary: download telemetry logs
+      description: Download telemetry logs as CSV (by timestamp range)
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: drone
+          schema:
+            $ref: '#/components/schemas/drone'
+        - in: query
+          name: drone_id
+          schema:
+            $ref: '#/components/schemas/id'
+      responses:
+        200:
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Specifies the filename in the format "telemetry_logs_{from_ts}_{to_ts}.csv"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+  /log/download/event:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics, download ]
+      summary: download event logs
+      description: Download event logs as CSV (by timestamp range)
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: service
+          schema:
+            $ref: '#/components/schemas/service'
+        - in: query
+          name: service_id
+          schema:
+            $ref: '#/components/schemas/id'
+        - in: query
+          name: severity
+          schema:
+            $ref: '#/components/schemas/severity'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message' # Now - maxLength=512 - It' wrong. maxLength=1024
+      responses:
+        200:
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Specifies the filename in the format "event_logs_{from_ts}_{to_ts}.csv"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+  /log/download/safety:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics, download ]
+      summary: download safety logs
+      description: Download safety logs as CSV (by timestamp range)
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: service
+          schema:
+            $ref: '#/components/schemas/service'
+        - in: query
+          name: service_id
+          schema:
+            $ref: '#/components/schemas/id'
+        - in: query
+          name: severity
+          schema:
+            $ref: '#/components/schemas/severity'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message' # Now - maxLength=512 - It' wrong. maxLength=1024
+      responses:
+        200:
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Specifies the filename in the format "safety_logs_{from_ts}_{to_ts}.csv"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+  /log/download/all:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics, download ]
+      summary: download all logs
+      description: Download all logs as CSV (by timestamp range)
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+      responses:
+        200:
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Specifies the filename in the format "all_logs_{from_ts}_{to_ts}.csv"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
         502:
           $ref: '#/components/responses/LogStorageError'
 
@@ -402,6 +716,10 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+    refresh: # It is necessary for /auth/refresh
+      type: apiKey
+      in: cookie
+      name: refresh_token
 
   schemas:
     message:
@@ -432,7 +750,7 @@ components:
     apiVersion:
       type: string
       description: API version
-      default: 1.0.0
+      default: 1.1.0
       minLength: 5
       maxLength: 8
 
@@ -549,13 +867,11 @@ components:
           $ref: '#/components/schemas/message'
       required: [timestamp, service, service_id, message]
 
-    TokenPair:
+    Token:
       type: object
       properties:
         access_token:
           $ref: '#/components/schemas/access_token'
-        refresh_token:
-          $ref: '#/components/schemas/refresh_token'
         token_type:
           type: string
           default: "Bearer"
@@ -570,8 +886,45 @@ components:
     AcceptedResponse:
       type: object
       properties:
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000
+          description: Total number of log received
         accepted:
           type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000
           description: Number of log entries successfully indexed
+        rejected:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000
+          description: Number of log entries rejected
+        errors:
+          type: array
+          minItems: 0
+          maxItems: 1000
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+                format: int32
+                minimum: 0
+                maximum: 1000
+              reason:
+                type: string
+                maxLength: 64
+                description: Reason of rejection
       required:
         - accepted
+    height:
+      type: number
+      format: double
+      minimum: 0
+      maximum: 500000
+      description: height in meters

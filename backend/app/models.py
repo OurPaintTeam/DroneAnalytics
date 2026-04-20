@@ -70,6 +70,7 @@ class TelemetryLogItem(StrictModel):
     course: float | None = Field(default=None, ge=0, le=360)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
+    height: float | None = Field(default=None, ge=0, le=500000)
 
 
 class EventLogItem(StrictModel):
@@ -92,6 +93,7 @@ class TelemetryLogResponse(StrictModel):
     course: float | None = Field(default=None, ge=0, le=360)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
+    height: float | None = Field(default=None, ge=0, le=500000)
 
 
 class EventLogResponse(StrictModel):
