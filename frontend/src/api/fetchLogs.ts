@@ -57,12 +57,12 @@ export async function fetchLogJsonArray(
 
 export async function checkBackend(): Promise<void> {
     try {
-        /*const res = await fetch(`${BACKEND_URL}/health`, {
+        const res = await fetch(`${BACKEND_URL}/`, {
             method: "GET",
             cache: "no-store"
-        })*/
-        const res = true
-        if (!res) {
+        })
+
+        if (!res.ok) {
             throw new ApiError(ApiErrorCode.BACKEND_DOWN)
         }
     } catch {

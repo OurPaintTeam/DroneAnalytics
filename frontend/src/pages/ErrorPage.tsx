@@ -1,4 +1,4 @@
-import { useRouteError, isRouteErrorResponse, useNavigate } from "react-router-dom"
+import { useRouteError, isRouteErrorResponse } from "react-router-dom"
 
 interface ErrorPageProps {
     customMessage?: string;
@@ -7,7 +7,6 @@ interface ErrorPageProps {
 
 export default function ErrorPage({ customMessage, customTitle }: ErrorPageProps = {}) {
     const error = useRouteError()
-    const navigate = useNavigate()
 
     let message = "Unknown error"
     let title = "Unexpected Application Error"
@@ -25,8 +24,8 @@ export default function ErrorPage({ customMessage, customTitle }: ErrorPageProps
         message = err?.message || err?.error?.message || JSON.stringify(err)
     }
 
-    const handleGoHome = () => {
-        navigate("/")
+    const handleRetry  = () => {
+        window.location.reload()
     }
 
     return (
@@ -36,7 +35,7 @@ export default function ErrorPage({ customMessage, customTitle }: ErrorPageProps
                 <h2 className="text-2xl mt-4 font-semibold">{title}</h2>
                 <pre className="mt-2 text-gray-600 whitespace-pre-wrap">{message}</pre>
                 <button
-                    onClick={handleGoHome}
+                    onClick={handleRetry }
                     className="inline-block mt-6 px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
                 >
                     Update
