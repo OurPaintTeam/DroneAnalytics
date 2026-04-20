@@ -75,7 +75,19 @@ class TestLogoutSuccess:
         assert data["status"] == "ok"
         # Убедиться, что нет лишних полей в ответе
         assert set(data.keys()) == {"status"}
-
+    
+    def test_logout_with_refresh_cookie(self, logged_in_tokens: Dict[str, Any]):
+        """Успешный logout с refresh_token только в cookie."""
+        headers = {"Authorization": f"Bearer {logged_in_tokens['access_token']}"}
+        resp = auth_logout(
+            BACKEND_URL,
+            payload=None,
+            headers=headers,
+            cookies={"refresh_token": logged_in_tokens["refresh_token"]},
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
 
 class TestLogoutValidation:
     """Тесты валидации входных данных."""

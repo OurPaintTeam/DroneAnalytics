@@ -65,36 +65,45 @@ def auth_refresh(
     payload: Optional[Dict[str, Any]] = None,
     headers: Optional[Dict[str, str]] = None,
     data: Optional[str] = None,
+    cookies: Optional[Dict[str, str]] = None,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> requests.Response:
     """Выполняет POST /auth/refresh."""
     request_kwargs: Dict[str, Any] = {"timeout": timeout}
     if headers is not None:
         request_kwargs["headers"] = headers
+    if cookies is not None:
+        request_kwargs["cookies"] = cookies
     if data is not None:
         request_kwargs["data"] = data
-    else:
-        request_kwargs["json"] = payload if payload is not None else {}
+    elif payload is not None:
+        request_kwargs["json"] = payload
     return _post(backend_url, "/auth/refresh", **request_kwargs)
 
 
 def auth_logout(
     backend_url: str,
-    payload: Dict[str, Any],
+    payload: Optional[Dict[str, Any]] = None,
     access_token: Optional[str] = None,
     headers: Optional[Dict[str, str]] = None,
+    cookies: Optional[Dict[str, str]] = None,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> requests.Response:
     """Выполняет POST /auth/logout."""
     request_headers = dict(headers or {})
     if access_token is not None:
         request_headers.setdefault("Authorization", f"Bearer {access_token}")
+    request_kwargs: Dict[str, Any] = {"timeout": timeout}
+    if payload is not None:
+        request_kwargs["json"] = payload
+    if cookies is not None:
+        request_kwargs["cookies"] = cookies
+    if request_headers:
+        request_kwargs["headers"] = request_headers
     return _post(
         backend_url,
         "/auth/logout",
-        json=payload,
-        headers=request_headers or None,
-        timeout=timeout,
+        **request_kwargs,
     )
 
 
