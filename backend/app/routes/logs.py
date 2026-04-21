@@ -846,6 +846,7 @@ def download_all_csv(
         "course",
         "latitude",
         "longitude",
+        "height",
         "service",
         "service_id",
         "severity",
