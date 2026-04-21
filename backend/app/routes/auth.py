@@ -9,6 +9,9 @@ from app.errors import auth_error
 from app.models import LoginRequest, RefreshTokenRequest, TokenPairResponse
 from app.security import consume_refresh_token, issue_access_token, issue_refresh_token, verify_user
 
+from app.models import AccessTokenStatusResponse
+from app.storage import now_ts
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
