@@ -43,13 +43,8 @@ class LoginRequest(StrictModel):
     password: str = Field(min_length=8, max_length=64)
 
 
-class RefreshTokenRequest(StrictModel):
-    refresh_token: str = Field(min_length=16, max_length=1024)
-
-
-class TokenPairResponse(StrictModel):
+class AccessTokenResponse(StrictModel):
     access_token: str
-    refresh_token: str
     token_type: str = "Bearer"
     expires_in: int
 
@@ -63,7 +58,7 @@ class TelemetryLogItem(StrictModel):
     apiVersion: str = Field(min_length=5, max_length=8)
     timestamp: int = Field(ge=0)
     drone: LogDroneType
-    drone_id: int = Field(ge=1)
+    drone_id: int = Field(ge=1, le=1000)
     battery: int | None = Field(default=None, ge=0, le=100)
     pitch: float | None = Field(default=None, ge=-90, le=90)
     roll: float | None = Field(default=None, ge=-180, le=180)
@@ -78,7 +73,7 @@ class EventLogItem(StrictModel):
     timestamp: int = Field(ge=0)
     event_type: Literal["event", "safety_event"] | None = None
     service: LogServiceType
-    service_id: int = Field(ge=1)
+    service_id: int = Field(ge=1, le=1000)
     severity: LogSeverityType | None = None
     message: str = Field(min_length=1, max_length=1024)
 
@@ -86,7 +81,7 @@ class EventLogItem(StrictModel):
 class TelemetryLogResponse(StrictModel):
     timestamp: int = Field(ge=0)
     drone: LogDroneType
-    drone_id: int = Field(ge=1)
+    drone_id: int = Field(ge=1, le=1000)
     battery: int | None = Field(default=None, ge=0, le=100)
     pitch: float | None = Field(default=None, ge=-90, le=90)
     roll: float | None = Field(default=None, ge=-180, le=180)
@@ -99,6 +94,6 @@ class TelemetryLogResponse(StrictModel):
 class EventLogResponse(StrictModel):
     timestamp: int = Field(ge=0)
     service: LogServiceType
-    service_id: int = Field(ge=1)
+    service_id: int = Field(ge=1, le=1000)
     severity: LogSeverityType | None = None
     message: str = Field(min_length=1, max_length=1024)

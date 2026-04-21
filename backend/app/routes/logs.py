@@ -538,13 +538,11 @@ def get_basic(
     page: int = Query(1, ge=1),
     from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
     to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
-    message: str | None = Query(None, max_length=1024, description="Полнотекстовый поиск по полю message"),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Полнотекстовый поиск по полю message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
-    message_match = message.strip() if message else None
-    if message_match == "":
-        message_match = None
+    message_match = message
     start = (page - 1) * limit
     return _get_logs_from_index(
         "basic",
@@ -568,7 +566,7 @@ def get_telemetry(
     from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
     to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
     drone: LogDroneType | None = Query(None),
-    drone_id: int | None = Query(None, ge=1),
+    drone_id: int | None = Query(None, ge=1, le=1000),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -600,15 +598,13 @@ def get_event(
     from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
     to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
     service: LogServiceType | None = Query(None),
-    service_id: int | None = Query(None, ge=1),
+    service_id: int | None = Query(None, ge=1, le=1000),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=1024, description="Полнотекстовый поиск по полю message"),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Полнотекстовый поиск по полю message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
-    message_match = message.strip() if message else None
-    if message_match == "":
-        message_match = None
+    message_match = message
     term_filters: dict[str, str | int] = {}
     if service is not None:
         term_filters["service"] = service
@@ -641,15 +637,13 @@ def get_safety(
     from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
     to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
     service: LogServiceType | None = Query(None),
-    service_id: int | None = Query(None, ge=1),
+    service_id: int | None = Query(None, ge=1, le=1000),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=1024, description="Полнотекстовый поиск по полю message"),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Полнотекстовый поиск по полю message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
-    message_match = message.strip() if message else None
-    if message_match == "":
-        message_match = None
+    message_match = message
     term_filters: dict[str, str | int] = {}
     if service is not None:
         term_filters["service"] = service
@@ -672,15 +666,13 @@ def get_safety(
 
 @router.get("/download/basic", summary="Download basic logs as CSV (by timestamp range)")
 def download_basic_csv(
-    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
-    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
-    message: str | None = Query(None, max_length=1024, description="Full-text search in message"),
+    from_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) end"),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
-    message_match = message.strip() if message else None
-    if message_match == "":
-        message_match = None
+    message_match = message
     fieldnames = ["timestamp", "message"]
 
     rows_iter = _es_scroll_iter(
@@ -705,10 +697,10 @@ def download_basic_csv(
 
 @router.get("/download/telemetry", summary="Download telemetry logs as CSV (by timestamp range)")
 def download_telemetry_csv(
-    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
-    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    from_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) end"),
     drone: LogDroneType | None = Query(None),
-    drone_id: int | None = Query(None, ge=1),
+    drone_id: int | None = Query(None, ge=1, le=1000),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
@@ -742,18 +734,16 @@ def download_telemetry_csv(
 
 @router.get("/download/event", summary="Download event logs as CSV (by timestamp range)")
 def download_event_csv(
-    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
-    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    from_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) end"),
     service: LogServiceType | None = Query(None),
-    service_id: int | None = Query(None, ge=1),
+    service_id: int | None = Query(None, ge=1, le=1000),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=1024, description="Full-text search in message"),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
-    message_match = message.strip() if message else None
-    if message_match == "":
-        message_match = None
+    message_match = message
     term_filters: dict[str, str | int] = {}
     if service is not None:
         term_filters["service"] = service
@@ -788,18 +778,16 @@ def download_event_csv(
 
 @router.get("/download/safety", summary="Download safety logs as CSV (by timestamp range)")
 def download_safety_csv(
-    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
-    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    from_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) end"),
     service: LogServiceType | None = Query(None),
-    service_id: int | None = Query(None, ge=1),
+    service_id: int | None = Query(None, ge=1, le=1000),
     severity: LogSeverityType | None = Query(None),
-    message: str | None = Query(None, max_length=1024, description="Full-text search in message"),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Full-text search in message"),
     _: dict = Depends(require_bearer_payload),
 ):
     validate_timestamp_range(from_ts, to_ts)
-    message_match = message.strip() if message else None
-    if message_match == "":
-        message_match = None
+    message_match = message
     term_filters: dict[str, str | int] = {}
     if service is not None:
         term_filters["service"] = service
@@ -834,10 +822,11 @@ def download_safety_csv(
 
 @router.get("/download/all")
 def download_all_csv(
-    from_ts: int | None = Query(None, description="Unix timestamp (ms) start"),
-    to_ts: int | None = Query(None, description="Unix timestamp (ms) end"),
+    from_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) start"),
+    to_ts: int | None = Query(None, ge=0, description="Unix timestamp (ms) end"),
     _: dict = Depends(require_bearer_payload),
 ):
+    validate_timestamp_range(from_ts, to_ts)
 
     rows_iter = _es_scroll_iter_multi(
         "basic,telemetry,event,safety",
@@ -857,6 +846,7 @@ def download_all_csv(
         "course",
         "latitude",
         "longitude",
+        "height",
         "service",
         "service_id",
         "severity",

@@ -1,7 +1,6 @@
 import {useId, useState, type CSSProperties} from "react"
 
 
-
 import {RED} from "../config"
 
 import {LOG_DRONE_TYPES} from "../logConstants"
@@ -11,7 +10,6 @@ import {buildTelemetrySearchParams, type TelemetryFilterForm} from "../logQuery"
 import MUIRangePicker from "./DateRangePicker"
 
 
-
 type Props = {
 
     onApply: (params: URLSearchParams) => void
@@ -19,11 +17,9 @@ type Props = {
 }
 
 
-
 const fieldClass =
 
     "w-full rounded-md border border-[#d8dce6] bg-[#fbfcff] px-2.5 py-1.5 text-sm text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition placeholder:text-slate-400 hover:border-[#bfc5d5] hover:shadow-[0_0_0_3px_rgba(159,45,32,0.06)] focus:border-[#9F2D20] focus:bg-white focus:outline-none focus:ring-2 focus:ring-offset-0"
-
 
 
 const emptyForm = (): TelemetryFilterForm => ({
@@ -39,7 +35,6 @@ const emptyForm = (): TelemetryFilterForm => ({
 })
 
 
-
 export default function TelemetryLogFilters({onApply}: Props) {
 
     const baseId = useId()
@@ -47,7 +42,6 @@ export default function TelemetryLogFilters({onApply}: Props) {
     const [form, setForm] = useState<TelemetryFilterForm>(emptyForm)
 
     const [error, setError] = useState<string | null>(null)
-
 
 
     const apply = () => {
@@ -69,7 +63,6 @@ export default function TelemetryLogFilters({onApply}: Props) {
     }
 
 
-
     const reset = () => {
 
         setForm(emptyForm())
@@ -81,9 +74,7 @@ export default function TelemetryLogFilters({onApply}: Props) {
     }
 
 
-
     const ringFocus = {["--tw-ring-color" as string]: RED} as CSSProperties
-
 
 
     return (
@@ -92,33 +83,32 @@ export default function TelemetryLogFilters({onApply}: Props) {
 
             <div className="grid gap-2.5 md:grid-cols-12 md:items-end md:gap-x-3">
 
-                    <div className="md:col-span-4">
+                <div className="md:col-span-4">
 
-                        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
 
-                            Период
+                        Период
 
-                        </label>
+                    </label>
 
-                        <MUIRangePicker
+                    <MUIRangePicker
 
-                            variant="inline"
+                        variant="inline"
 
-                            from={form.from}
+                        from={form.from}
 
-                            to={form.to}
+                        to={form.to}
 
-                            onChange={(from, to) => setForm(f => ({...f, from, to}))}
+                        onChange={(from, to) => setForm(f => ({...f, from, to}))}
 
-                        />
+                    />
 
-                    </div>
+                </div>
 
 
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:col-span-6">
 
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:col-span-6">
-
-                        <label className="flex flex-col gap-1">
+                    <label className="flex flex-col gap-1">
 
                             <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
 
@@ -126,37 +116,37 @@ export default function TelemetryLogFilters({onApply}: Props) {
 
                             </span>
 
-                            <select
+                        <select
 
-                                id={`${baseId}-drone`}
+                            id={`${baseId}-drone`}
 
-                                className={fieldClass}
+                            className={fieldClass}
 
-                                style={ringFocus}
+                            style={ringFocus}
 
-                                value={form.drone}
+                            value={form.drone}
 
-                                onChange={e => setForm(f => ({...f, drone: e.target.value}))}
+                            onChange={e => setForm(f => ({...f, drone: e.target.value}))}
 
-                            >
+                        >
 
-                                <option value="">Все</option>
+                            <option value="">Все</option>
 
-                                {LOG_DRONE_TYPES.map(d => (
+                            {LOG_DRONE_TYPES.map(d => (
 
-                                    <option key={d} value={d}>
+                                <option key={d} value={d}>
 
-                                        {d}
+                                    {d}
 
-                                    </option>
+                                </option>
 
-                                ))}
+                            ))}
 
-                            </select>
+                        </select>
 
-                        </label>
+                    </label>
 
-                        <label className="flex flex-col gap-1">
+                    <label className="flex flex-col gap-1">
 
                             <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
 
@@ -164,65 +154,68 @@ export default function TelemetryLogFilters({onApply}: Props) {
 
                             </span>
 
-                            <input
+                        <input
 
-                                id={`${baseId}-did`}
+                            id={`${baseId}-did`}
 
-                                type="text"
+                            type="text"
 
-                                inputMode="numeric"
+                            inputMode="numeric"
 
-                                autoComplete="off"
+                            autoComplete="off"
 
-                                placeholder="≥ 1"
+                            placeholder="≥ 1"
 
-                                className={fieldClass}
+                            className={fieldClass}
 
-                                style={ringFocus}
+                            style={ringFocus}
 
-                                value={form.droneIdRaw}
+                            value={form.droneIdRaw}
 
-                                onChange={e => setForm(f => ({...f, droneIdRaw: e.target.value}))}
+                            onChange={e => setForm(f => ({...f, droneIdRaw: e.target.value}))}
 
-                            />
+                        />
 
-                        </label>
+                    </label>
 
-                    </div>
+                </div>
 
-                    <div className="flex gap-2 sm:justify-end md:col-span-2 md:pb-[1px]">
+                <div className="flex gap-2 sm:justify-end md:col-span-2 md:pb-[1px]">
 
-                        <button
+                    <button
 
-                            type="button"
+                        type="button"
 
-                            className="rounded-md border border-[#d8dce6] bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-[#c2c9d8] hover:bg-white hover:shadow sm:text-sm"
+                        className="rounded-md border border-[#d8dce6] bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-[#c2c9d8] hover:bg-white hover:shadow sm:text-sm"
 
-                            onClick={reset}
+                        onClick={reset}
 
-                        >
+                    >
 
-                            Сбросить
+                        Сбросить
 
-                        </button>
+                    </button>
 
-                        <button
+                    <button
 
-                            type="button"
+                        type="button"
 
-                            className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-[0_4px_14px_rgba(159,45,32,0.28)] transition hover:-translate-y-px hover:brightness-110 active:translate-y-0 sm:text-sm"
+                        className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-[0_4px_14px_rgba(159,45,32,0.28)] transition hover:-translate-y-px hover:brightness-110 active:translate-y-0 sm:text-sm"
 
-                            style={{background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)", borderColor: "#7f2419"}}
+                        style={{
+                            background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)",
+                            borderColor: "#7f2419"
+                        }}
 
-                            onClick={apply}
+                        onClick={apply}
 
-                        >
+                    >
 
-                            Применить
+                        Применить
 
-                        </button>
+                    </button>
 
-                    </div>
+                </div>
 
             </div>
 
