@@ -3,17 +3,14 @@ import {ApiError, ApiErrorCode} from "./notify.ts";
 
 async function validateTokenOnServer(token: string): Promise<boolean> {
     try {
-        /*  const res = await fetch(`${BACKEND_URL}/auth/validate`, {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`
-              }
-          })*/
-        if (token) {
-            return true
-        }
-        return false
+        const res = await fetch(`${BACKEND_URL}/auth/check`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        })
+
+        return res.ok
     } catch {
         return false
     }
@@ -67,13 +64,6 @@ export async function checkAuth(): Promise<void> {
     if (!refreshed) {
         throw new ApiError(ApiErrorCode.UNAUTHORIZED)
     }
-
-    // 3. повторная проверка
-    const newToken = localStorage.getItem("access_token")
-
-    const isValidAfter = await validateTokenOnServer(newToken!)
-
-    if (isValidAfter) return
 
     throw new ApiError(ApiErrorCode.UNAUTHORIZED)
 }
