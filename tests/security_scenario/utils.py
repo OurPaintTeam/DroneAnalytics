@@ -56,13 +56,26 @@ def wait_for_elastic_sync(seconds: float = 1.5) -> None:
     time.sleep(seconds)
 
 
-def count_basic_docs_by_message(marker: str) -> int:
-    """Подсчитывает документы в индексе basic по точному совпадению message."""
-    query = {"query": {"match_phrase": {"message": marker}}}
-    resp = requests.post(f"{ELASTIC_URL}/basic/_count", json=query, timeout=5)
+def count_basic_docs_by_message(
+    *,
+    proxy_base_url: str,
+    bearer_headers: dict[str, str],
+    marker: str,
+    limit: int = 100,
+) -> int:
+    """Подсчитывает документы basic через API proxy по точному совпадению message."""
+    resp = proxy_request(
+        "GET",
+        f"{proxy_base_url}/log/basic",
+        params={"message": marker, "limit": limit, "page": 1},
+        headers=bearer_headers,
+    )
     if resp.status_code != 200:
         return 0
-    return int(resp.json().get("count", 0))
+    payload = resp.json()
+    if not isinstance(payload, list):
+        return 0
+    return sum(1 for item in payload if item.get("message") == marker)
 
 
 def forge_access_token(secret_key: str, *, subject: str, exp_delta_sec: int = 900) -> str:
