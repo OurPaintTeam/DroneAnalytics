@@ -4,10 +4,8 @@ from __future__ import annotations
 import time
 
 import pytest
-import requests
 
 from security_scenario.utils import (
-    ELASTIC_URL,
     count_basic_docs_by_message,
     proxy_request,
     wait_for_elastic_sync,
@@ -55,7 +53,7 @@ class TestThreat3LogIntegrity:
 
         assert resp.status_code in {404, 405}, resp.text
 
-    def test_step_3_conflicting_writes_do_not_erase_previous_entries(self, proxy_base_url: str, api_headers: dict[str, str]) -> None:
+    def test_step_3_conflicting_writes_do_not_erase_previous_entries(self, proxy_base_url: str, api_headers: dict[str, str], bearer_headers: dict[str, str]) -> None:
         ts = int(time.time() * 1000)
         marker_a = f"TH3_A_{ts}"
         marker_b = f"TH3_B_{ts}"
@@ -71,10 +69,23 @@ class TestThreat3LogIntegrity:
 
         wait_for_elastic_sync()
 
-        assert count_basic_docs_by_message(marker_a) == 1
-        assert count_basic_docs_by_message(marker_b) == 1
+        assert count_basic_docs_by_message(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            marker=marker_a,
+        ) == 1
+        assert count_basic_docs_by_message(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            marker=marker_b,
+        ) == 1
 
-    def test_step_4_proxy_path_cannot_delete_in_elastic_style(self, proxy_base_url: str, api_headers: dict[str, str]) -> None:
+    def test_step_4_proxy_path_cannot_delete_in_elastic_style(
+        self,
+        proxy_base_url: str,
+        api_headers: dict[str, str],
+        bearer_headers: dict[str, str],
+    ) -> None:
         """
         Прикладной тест: имитируем попытку обратиться к ES-like endpoint через proxy.
         Ожидание: такой путь не должен позволять удалять данные из журнала.
@@ -86,7 +97,11 @@ class TestThreat3LogIntegrity:
         assert create_resp.status_code == 200, create_resp.text
         wait_for_elastic_sync()
 
-        before = count_basic_docs_by_message(marker)
+        before = count_basic_docs_by_message(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            marker=marker,
+        )
         assert before == 1
 
         attack_resp = proxy_request(
@@ -100,5 +115,9 @@ class TestThreat3LogIntegrity:
         assert attack_resp.status_code in {400, 401, 403, 404, 405, 422}, attack_resp.text
 
         wait_for_elastic_sync()
-        after = count_basic_docs_by_message(marker)
+        after = count_basic_docs_by_message(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            marker=marker,
+        )
         assert after == before

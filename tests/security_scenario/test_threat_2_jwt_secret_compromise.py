@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import pytest
 
@@ -15,6 +16,12 @@ pytestmark = pytest.mark.filterwarnings(
     "ignore::urllib3.exceptions.InsecureRequestWarning"
 )
 
+def _assert_successful_basic_access(response: Any) -> list[dict[str, Any]]:
+    assert response.status_code == 200, response.text
+    assert "application/json" in response.headers.get("Content-Type", "")
+    data = response.json()
+    assert isinstance(data, list), f"Expected list response from /log/basic, got: {type(data).__name__}"
+    return data
 
 class TestThreat2JwtSecretCompromise:
     """Шаговые тесты сценария угрозы №2."""
@@ -63,7 +70,7 @@ class TestThreat2JwtSecretCompromise:
         )
 
         # Ожидаем 200 в текущей модели: при утечке SECRET_KEY можно выпустить валидный токен.
-        assert response.status_code != 200, response.text
+        _assert_successful_basic_access(response)
 
     def test_step_5_forged_token_without_login_still_allows_access(
         self,
@@ -79,4 +86,4 @@ class TestThreat2JwtSecretCompromise:
         )
 
         # Проверяем именно отсутствие зависимости от /auth/login сессии.
-        assert response.status_code != 200, response.text
+        _assert_successful_basic_access(response)

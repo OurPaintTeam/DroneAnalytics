@@ -1,12 +1,11 @@
 """Security scenario: Threat 1 — подмена телеметрии через API-ключ."""
 from __future__ import annotations
 
-import requests
 import pytest
 import time
 from typing import Any
 
-from security_scenario.utils import ELASTIC_URL, proxy_request, wait_for_elastic_sync
+from security_scenario.utils import proxy_request, wait_for_elastic_sync
 
 
 pytestmark = pytest.mark.filterwarnings(
@@ -38,25 +37,23 @@ def _telemetry_payload(
     ]
 
 
-def _count_telemetry_for_drone(drone_id: int) -> int:
-    query = {"query": {"term": {"drone_id": drone_id}}}
-    response = requests.post(f"{ELASTIC_URL}/telemetry/_count", json=query, timeout=5)
-    if response.status_code != 200:
-        return 0
-    return int(response.json().get("count", 0))
-
-
-def _search_telemetry_for_drone(drone_id: int, size: int = 10) -> list[dict[str, Any]]:
-    query = {
-        "query": {"term": {"drone_id": drone_id}},
-        "sort": [{"timestamp": {"order": "asc"}}],
-        "size": size,
-    }
-    response = requests.post(f"{ELASTIC_URL}/telemetry/_search", json=query, timeout=5)
-    if response.status_code != 200:
-        return []
-    hits = response.json().get("hits", {}).get("hits", [])
-    return [hit.get("_source", {}) for hit in hits]
+def _fetch_telemetry_for_drone(
+    *,
+    proxy_base_url: str,
+    bearer_headers: dict[str, str],
+    drone_id: int,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    response = proxy_request(
+        "GET",
+        f"{proxy_base_url}/log/telemetry",
+        params={"drone_id": drone_id, "limit": limit, "page": 1},
+        headers=bearer_headers,
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert isinstance(payload, list), f"Expected telemetry list, got: {type(payload).__name__}"
+    return payload
 
 
 class TestThreat1ApiKeySpoofing:
@@ -68,8 +65,9 @@ class TestThreat1ApiKeySpoofing:
         self,
         proxy_base_url: str,
         api_headers: dict[str, str],
+        bearer_headers: dict[str, str],
     ) -> None:
-        drone_id = 11001
+        drone_id = 901
         payload = _telemetry_payload(
             drone_id=drone_id,
             timestamp_ms=int(time.time() * 1000),
@@ -90,10 +88,19 @@ class TestThreat1ApiKeySpoofing:
         assert data["rejected"] == 0
 
         wait_for_elastic_sync()
-        assert _count_telemetry_for_drone(drone_id) == 1
+        telemetry_docs = _fetch_telemetry_for_drone(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            drone_id=drone_id,
+        )
+        assert len(telemetry_docs) == 1
 
-    def test_step_2_missing_api_key_is_rejected(self, proxy_base_url: str) -> None:
-        drone_id = 11002
+    def test_step_2_missing_api_key_is_rejected(
+        self,
+        proxy_base_url: str,
+        bearer_headers: dict[str, str],
+    ) -> None:
+        drone_id = 902
         payload = _telemetry_payload(
             drone_id=drone_id,
             timestamp_ms=int(time.time() * 1000),
@@ -111,10 +118,19 @@ class TestThreat1ApiKeySpoofing:
         assert response.status_code == 401, response.text
 
         wait_for_elastic_sync()
-        assert _count_telemetry_for_drone(drone_id) == 0
+        telemetry_docs = _fetch_telemetry_for_drone(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            drone_id=drone_id,
+        )
+        assert len(telemetry_docs) == 0
 
-    def test_step_3_invalid_api_key_is_rejected(self, proxy_base_url: str) -> None:
-        drone_id = 11003
+    def test_step_3_invalid_api_key_is_rejected(
+        self,
+        proxy_base_url: str,
+        bearer_headers: dict[str, str],
+    ) -> None:
+        drone_id = 903
         payload = _telemetry_payload(
             drone_id=drone_id,
             timestamp_ms=int(time.time() * 1000),
@@ -132,14 +148,20 @@ class TestThreat1ApiKeySpoofing:
         assert response.status_code == 401, response.text
 
         wait_for_elastic_sync()
-        assert _count_telemetry_for_drone(drone_id) == 0
+        telemetry_docs = _fetch_telemetry_for_drone(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            drone_id=drone_id,
+        )
+        assert len(telemetry_docs) == 0
 
     def test_step_4_compromised_valid_api_key_allows_spoofing(
         self,
         proxy_base_url: str,
         api_headers: dict[str, str],
+        bearer_headers: dict[str, str],
     ) -> None:
-        drone_id = 11004
+        drone_id = 904
         base_ts = int(time.time() * 1000)
 
         legitimate_payloads = [
@@ -187,4 +209,22 @@ class TestThreat1ApiKeySpoofing:
             headers=attacker_headers,
         )
 
-        assert attacker_response.status_code != 200, attacker_response.text
+        assert attacker_response.status_code == 200, attacker_response.text
+        attacker_data = attacker_response.json()
+        assert attacker_data["accepted"] == 1
+        assert attacker_data["rejected"] == 0
+
+        wait_for_elastic_sync()
+        telemetry_docs = _fetch_telemetry_for_drone(
+            proxy_base_url=proxy_base_url,
+            bearer_headers=bearer_headers,
+            drone_id=drone_id,
+            limit=10,
+        )
+        assert len(telemetry_docs) == 3
+        assert any(
+            item.get("timestamp") == base_ts + 2000
+            and item.get("latitude") == -33.8688
+            and item.get("longitude") == 151.2093
+            for item in telemetry_docs
+        )
