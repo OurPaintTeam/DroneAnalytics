@@ -17,6 +17,7 @@ interface TelemetryLog {
     course: number
     latitude: number
     longitude: number
+    height: number
 }
 
 export default function TelemetryLogPage() {
@@ -74,6 +75,7 @@ export default function TelemetryLogPage() {
                 {key: "course", label: "Course"},
                 {key: "latitude", label: "Latitude"},
                 {key: "longitude", label: "Longitude"},
+                {key: "height", label: "Height"},
             ]}
             onDownload={() => downloadLogs("/log/download/telemetry", filterParams)}
             pagination={{

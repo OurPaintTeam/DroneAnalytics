@@ -882,7 +882,7 @@ components:
           description: Access token lifetime in seconds
           minimum: 60
           maximum: 86400
-      required: [access_token, refresh_token]
+      required: [access_token]
     AcceptedResponse:
       type: object
       properties:
