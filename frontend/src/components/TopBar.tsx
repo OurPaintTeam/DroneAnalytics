@@ -2,9 +2,9 @@ import {Outlet, NavLink} from "react-router-dom"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
-import SPbguLogo from "../assets/spbgu_logo.svg"
 import OP_logo from "../assets/OP_logo.svg"
-import {  BACKEND_URL,RED } from "../config.ts"
+import {RED } from "../config.ts"
+import { logout } from "./TokenCheck.ts"
 
 function TopBarLayout() {
     const [menuOpen, setMenuOpen] = useState(false)
@@ -30,33 +30,18 @@ function TopBarLayout() {
   `
 
     const NAV_ITEMS = [
-        {to: "/event", label: "Журнал", end: true},
+        {to: "/general", label: "Главная", end: true},
+        {to: "/event", label: "Журнал"},
         {to: "/safety", label: "Безопасность"},
         {to: "/telemetry", label: "Телеметрия"},
-        {to: "/commands", label: "Аналитика команд"},
         {to: "/about", label: "О нас"},
     ]
 
     const navigate = useNavigate()
 
     const handleLogout = async () => {
-        const access = localStorage.getItem("access_token")
-        try {
-            if (access) {
-                await fetch(`${BACKEND_URL}/auth/logout`, {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        Authorization: `Bearer ${access}`,
-                    },
-                })
-            }
-        } catch {
-            /* network errors: still clear client session */
-        } finally {
-            localStorage.removeItem("access_token")
-            navigate("/login")
-        }
+        await logout()
+        navigate("/login")
     }
 
     return (
@@ -70,7 +55,6 @@ function TopBarLayout() {
             <span style={{color: RED}}>OurPaint</span> <br />Company
           </span>
 
-                    <img src={SPbguLogo} alt="SPbGU Logo" className="h-20 ml-3"/>
                 </div>
 
                 <nav className="hidden md:flex items-center gap-6 text-sm font-medium">

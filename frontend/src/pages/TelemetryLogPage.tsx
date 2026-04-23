@@ -4,8 +4,8 @@ import {useNavigate} from "react-router-dom"
 import {fetchLogJsonArray} from "../api/fetchLogs"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
 import TelemetryLogFilters from "../components/TelemetryLogFilters"
-import {checkAuth} from "../components/TokenCheck"
 import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
+import {handleApiError, handleAuthError} from "../components/notify"
 
 interface TelemetryLog {
     timestamp: number
@@ -30,17 +30,16 @@ export default function TelemetryLogPage() {
     useEffect(() => {
         let cancelled = false
         const run = async () => {
-            const authorized = await checkAuth()
-            if (!authorized) {
-                navigate("/login")
-                return
-            }
             try {
                 const listParams = buildLogListSearchParams(filterParams, page, limit)
                 const data = await fetchLogJsonArray("/log/telemetry", listParams)
                 if (!cancelled) setLogs(data as TelemetryLog[])
-            } catch {
-                if (!cancelled) console.error("Ошибка загрузки журнала")
+            } catch (e: any) {
+                console.error("Ошибка загрузки журнала:", e)
+
+                setLogs([])
+                handleApiError(e)
+                handleAuthError(e, navigate)
             }
         }
         void run()

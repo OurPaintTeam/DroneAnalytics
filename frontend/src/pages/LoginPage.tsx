@@ -2,9 +2,27 @@ import {useState, useEffect} from "react"
 import {useNavigate} from "react-router-dom"
 
 import OP_logo from "../assets/OP_logo.svg"
-import SPbguLogo from "../assets/spbgu_logo.svg"
 import {RED, BACKEND_URL} from "../config.ts"
 import {checkAuth} from "../components/TokenCheck.ts"
+import {checkBackend} from "../api/fetchLogs.ts";
+import {handleApiErrorBackend} from "../components/notify.ts";
+
+function getAuthErrorMessage(status: number): string {
+    switch (status) {
+        case 400:
+            return "Меньше 4 символов в логине или меньше 8 символов в пароле"
+        case 401:
+            return "Неверный логин или пароль"
+        case 403:
+            return "Нет доступа"
+        case 404:
+            return "Сервис не найден"
+        case 500:
+            return "Ошибка сервера"
+        default:
+            return "Ошибка авторизации"
+    }
+}
 
 function LoginPage() {
 
@@ -19,6 +37,14 @@ function LoginPage() {
         setError("")
 
         try {
+            await checkBackend()
+        } catch (error) {
+            const errorMessage = handleApiErrorBackend(error)
+            setError(errorMessage)
+            return
+        }
+
+        try {
             const response = await fetch(`${BACKEND_URL}/auth/login`, {
                 method: "POST",
                 headers: {
@@ -26,23 +52,21 @@ function LoginPage() {
                 },
                 credentials: "include",
                 body: JSON.stringify({
-                    username: username,
-                    password: password
+                    username,
+                    password
                 })
             })
 
             const data = await response.json()
 
             if (!response.ok) {
-                const text: string = data.message || ""
-                const matches = [...text.matchAll(/'msg':\s*'([^']+)'/g)]
-                const messages = matches.map(m => m[1])
-                throw new Error(messages.join(", ") || "Ошибка авторизации")
+                throw new Error(getAuthErrorMessage(response.status))
             }
 
-            const {access_token} = data
-            localStorage.setItem("access_token", access_token)
-            navigate("/event")
+            localStorage.setItem("access_token", data.access_token)
+
+            navigate("/event", { replace: true })
+
         } catch (err: any) {
             setError(err.message || "Ошибка соединения с сервером")
         }
@@ -50,14 +74,16 @@ function LoginPage() {
 
     useEffect(() => {
         const check = async () => {
-            const authorized = await checkAuth()
-            if (authorized) {
-                navigate("/event")
+            try {
+                await checkAuth()
+                navigate("/event", { replace: true })
+            } catch {
+                // пользователь не авторизован — остаётся на login
             }
         }
 
         check()
-    }, [])
+    }, [navigate])
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-white px-4">
@@ -67,14 +93,10 @@ function LoginPage() {
                     <div className="flex items-center justify-center gap-10">
                         <div className="flex items-center gap-2">
                             <img src={OP_logo} alt="OP Logo" className="h-9"/>
-                            <span className="text-sm font-semibold tracking-tight leading-none">
-                                <span style={{color: RED}}>OurPaint</span>
-                                 <br/>
-                                 <span className="text-gray-800">Company</span>
+                            <span className="text-2xl font-semibold tracking-tight leading-none">
+                                <span style={{color: RED}}>OurPaint Company</span>
                              </span>
                         </div>
-                        <div className="h-10 w-[1px] bg-gray-300"/>
-                        <img src={SPbguLogo} alt="SPbGU Logo" className="h-20"/>
                     </div>
                     <div className="w-full h-[1px] bg-gray-300 my-1"/>
                     <div className="text-center">

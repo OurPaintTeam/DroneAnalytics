@@ -33,9 +33,14 @@ LogSeverityType = Literal[
     "emergency",
 ]
 
-
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+class AccessTokenStatusResponse(StrictModel):
+    status: str = "ok"
+    subject: str
+    token_type: str = "access"
+    expires_in: int
 
 
 class LoginRequest(StrictModel):

@@ -1,21 +1,21 @@
 /** Значения совпадают с backend/app/models.py и docs/api.yaml — только whitelist в query. */
 
 export const LOG_SERVICE_TYPES = [
-    "delivery",
-    "queen",
-    "inspector",
-    "agriculture",
-    "GCS",
     "aggregator",
-    "insurance",
-    "regulator",
+    "agriculture",
+    "delivery",
     "dronePort",
-    "OrAT_drones",
-    "operator",
-    "SITL",
+    "GCS",
     "Gazebo",
     "infopanel",
+    "inspector",
+    "insurance",
+    "operator",
+    "OrAT_drones",
+    "queen",
     "registry",
+    "regulator",
+    "SITL",
 ] as const
 
 export type LogServiceType = (typeof LOG_SERVICE_TYPES)[number]

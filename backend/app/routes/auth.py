@@ -6,6 +6,9 @@ from app.errors import auth_error
 from app.models import AccessTokenResponse, LoginRequest
 from app.security import consume_refresh_token, issue_access_token, issue_refresh_token, verify_user
 
+from app.models import AccessTokenStatusResponse
+from app.storage import now_ts
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -20,6 +23,21 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         max_age=REFRESH_TTL_SECONDS,
     )
 
+
+
+@router.get("/check", response_model=AccessTokenStatusResponse)
+def auth_check(bearer_payload: dict[str, Any] = Depends(require_bearer_payload)):
+    subject = str(bearer_payload.get("sub", "")).strip()
+    expires_at = int(bearer_payload.get("exp", 0) or 0)
+    expires_in = max(0, expires_at - now_ts())
+
+    audit_safety("info", f"action=auth_check status=success subject={subject} expires_in={expires_in}")
+
+    return AccessTokenStatusResponse(
+        subject=subject,
+        token_type="access",
+        expires_in=expires_in,
+    )
 
 def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(key="refresh_token", path="/")

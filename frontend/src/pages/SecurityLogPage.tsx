@@ -4,8 +4,8 @@ import {useNavigate} from "react-router-dom"
 import {fetchLogJsonArray} from "../api/fetchLogs"
 import EventSafetyLogFilters from "../components/EventSafetyLogFilters"
 import LogPanel, {downloadLogs} from "../components/LogPanel"
-import {checkAuth} from "../components/TokenCheck"
 import {buildLogListSearchParams, LOG_PAGE_DEFAULT, type LogPageSize} from "../logPagination"
+import {handleApiError, handleAuthError} from "../components/notify.ts";
 
 interface SecurityLog {
     timestamp: number
@@ -25,17 +25,17 @@ export default function SecurityLogPage() {
     useEffect(() => {
         let cancelled = false
         const run = async () => {
-            const authorized = await checkAuth()
-            if (!authorized) {
-                navigate("/login")
-                return
-            }
             try {
                 const listParams = buildLogListSearchParams(filterParams, page, limit)
                 const data = await fetchLogJsonArray("/log/safety", listParams)
-                if (!cancelled) setLogs(data as SecurityLog[])
-            } catch {
-                if (!cancelled) console.error("Ошибка загрузки журнала")
+
+                if (!cancelled) {
+                    setLogs(data as SecurityLog[])
+                }
+
+            } catch (e: any) {
+                handleApiError(e)
+                handleAuthError(e, navigate)
             }
         }
         void run()

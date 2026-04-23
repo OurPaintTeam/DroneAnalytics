@@ -2,6 +2,8 @@ import * as React from "react"
 import {useEffect, useRef, useState} from "react"
 import {BACKEND_URL, RED} from "../config"
 import {LOG_PAGE_SIZE_OPTIONS, type LogPageSize} from "../logPagination"
+import {ApiError, ApiErrorCode, handleApiError} from "./notify.ts";
+import {checkAuth} from "./TokenCheck.ts";
 
 export interface Column<T> {
     key: keyof T
@@ -24,7 +26,7 @@ export interface LogPanelProps<T> {
     columns?: Column<T>[]
     /** Опциональная панель фильтров. */
     filters?: React.ReactNode
-    onDownload?: () => void
+    onDownload?: () => Promise<void>
     pagination?: LogPanelPagination
 }
 
@@ -32,45 +34,61 @@ export const downloadLogs = async (
     urlPath: string,
     params?: URLSearchParams
 ) => {
-    try {
-        const access = localStorage.getItem("access_token")
-        if (!access) {
-            console.error("❌ access token")
-            return
-        }
+    const access = localStorage.getItem("access_token")
 
-        const qs = params?.toString() ?? ""
-        const url = `${BACKEND_URL}${urlPath}${qs ? `?${qs}` : ""}`
-
-        const res = await fetch(url, {
-            method: "GET",
-            headers: {Authorization: `Bearer ${access}`},
-        })
-
-        if (!res.ok) {
-            const text = await res.text()
-            console.error("❌ Server response:", text)
-            throw new Error("Failed to download logs")
-        }
-
-        const blob = await res.blob()
-        const downloadUrl = URL.createObjectURL(blob)
-
-        const a = document.createElement("a")
-        a.href = downloadUrl
-        const contentDisposition = res.headers.get("Content-Disposition")
-        let filename = "file.csv"
-        if (contentDisposition) {
-            const match = contentDisposition.match(/filename="?(.+?)"?$/)
-            if (match?.[1]) filename = match[1]
-        }
-        a.download = filename
-        a.click()
-
-        URL.revokeObjectURL(downloadUrl)
-    } catch (err) {
-        console.error("❌ Download failed:", err)
+    if (!access) {
+        throw new ApiError(ApiErrorCode.NO_TOKEN)
     }
+
+    await checkAuth()
+
+    const qs = params?.toString() ?? ""
+    const url = `${BACKEND_URL}${urlPath}${qs ? `?${qs}` : ""}`
+
+    let res: Response
+
+    try {
+        res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${access}` },
+        })
+    } catch {
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
+    }
+
+    if (!res.ok) {
+        switch (res.status) {
+            case 401:
+                throw new ApiError(ApiErrorCode.UNAUTHORIZED)
+            case 403:
+                throw new ApiError(ApiErrorCode.FORBIDDEN)
+            case 404:
+                throw new ApiError(ApiErrorCode.NOT_FOUND)
+            case 500:
+                throw new ApiError(ApiErrorCode.SERVER_ERROR)
+            default:
+                throw new ApiError(ApiErrorCode.SERVER_ERROR)
+        }
+    }
+
+    const blob = await res.blob()
+    const downloadUrl = URL.createObjectURL(blob)
+
+    const a = document.createElement("a")
+    a.href = downloadUrl
+
+    const contentDisposition = res.headers.get("Content-Disposition")
+    let filename = "file.csv"
+
+    if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+?)"?$/)
+        if (match?.[1]) filename = match[1]
+    }
+
+    a.download = filename
+    a.click()
+
+    URL.revokeObjectURL(downloadUrl)
 }
 
 const secondaryBtnClass =
@@ -83,7 +101,6 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
     const logsEndRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const safeLogs = Array.isArray(logs) ? logs : []
-
     const [showFilters, setShowFilters] = useState(false)
 
     useEffect(() => {
@@ -94,15 +111,20 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
         logsEndRef.current?.scrollIntoView({behavior: "smooth"})
     }, [safeLogs, pagination, pagination?.page])
 
-    const handleDownload = () => {
-        if (!onDownload) return
-        onDownload()
+    const handleDownload = async () => {
+        try {
+            if (!onDownload) return
+            await onDownload()
+        } catch (e) {
+            handleApiError(e)
+        }
     }
 
     return (
         <div
             className="relative flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-white pt-3 pb-3 font-sans text-gray-800 sm:pt-4 sm:pb-4">
-            <div className="relative mx-2 flex flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:mx-4 sm:rounded-xl md:mx-6">
+            <div
+                className="relative mx-2 flex flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:mx-4 sm:rounded-xl md:mx-6">
 
                 {/* red line */}
                 <div className="absolute top-0 left-0 right-0 h-[3px]" style={{backgroundColor: RED}}/>
@@ -123,7 +145,9 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
                                     className="inline-flex items-center gap-1.5 rounded-md border border-[#d8dce6] bg-[#fbfcff] px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.04em] text-slate-700 transition hover:-translate-y-[1px] hover:border-[#c2c9d8] hover:bg-white"
                                 >
                                     {showFilters ? "Скрыть фильтры" : "Показать фильтры"}
-                                    <span className="inline-block text-[10px] leading-none transition-transform duration-300" aria-hidden>
+                                    <span
+                                        className="inline-block text-[10px] leading-none transition-transform duration-300"
+                                        aria-hidden>
                                         {showFilters ? "▲" : "▼"}
                                     </span>
                                 </button>
@@ -137,7 +161,10 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
                                 <button
                                     onClick={handleDownload}
                                     className="rounded-md border px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 sm:px-4 sm:text-sm"
-                                    style={{background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)", borderColor: "#7f2419"}}
+                                    style={{
+                                        background: "linear-gradient(135deg, #9F2D20 0%, #7f2419 100%)",
+                                        borderColor: "#7f2419"
+                                    }}
                                 >
                                     Скачать
                                 </button>
@@ -148,9 +175,11 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
 
                 {filters ? (
                     <div className="border-b border-[#ebeef5] bg-white">
-                        <div className={`grid transition-all duration-300 ease-out ${showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                        <div
+                            className={`grid transition-all duration-300 ease-out ${showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                             <div className="overflow-hidden">
-                                <div className={`px-3 pt-2 pb-2.5 sm:px-4 md:px-6 transition-transform duration-300 ${showFilters ? "translate-y-0" : "-translate-y-1"}`}>
+                                <div
+                                    className={`px-3 pt-2 pb-2.5 sm:px-4 md:px-6 transition-transform duration-300 ${showFilters ? "translate-y-0" : "-translate-y-1"}`}>
                                     {filters}
                                 </div>
                             </div>
@@ -161,32 +190,58 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
                 {/* logs / table */}
                 <div
                     ref={scrollRef}
-                    className="flex-1 overflow-y-auto px-6 py-4 space-y-2 font-mono text-sm text-gray-600"
+                    className="flex-1 overflow-y-auto px-6 space-y-2 font-mono text-sm text-gray-600"
                 >
+
                     {columns ? (
-                        <table className="w-full table-auto border-collapse text-left">
-                            <thead>
-                            <tr>
-                                {columns.map(col => (
-                                    <th key={String(col.key)} className="border-b px-2 py-1 font-medium text-gray-700">
-                                        {col.label}
-                                    </th>
-                                ))}
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {safeLogs.map((log, i) => (
-                                <tr key={i} className="hover:bg-gray-50">
+                        <div className="relative">
+                            <table className="w-full table-auto border-collapse text-left">
+
+                                {/* sticky header + линия вместе */}
+                                <thead className="sticky top-0 z-20 bg-white">
+                                <tr>
                                     {columns.map(col => (
-                                        <td key={String(col.key)} className="px-2 py-1 border-l-2"
-                                            style={{borderColor: RED}}>
-                                            {col.render ? col.render(log[col.key], log) : String(log[col.key])}
-                                        </td>
+                                        <th
+                                            key={String(col.key)}
+                                            className="px-2 pt-5 pb-1 font-medium text-gray-700 bg-white"
+                                        >
+                                            {col.label}
+                                        </th>
                                     ))}
                                 </tr>
-                            ))}
-                            </tbody>
-                        </table>
+
+                                <tr>
+                                    <th colSpan={columns.length} className="p-0">
+                                        <div
+                                            className="h-[1.5px] w-full"
+                                            style={{
+                                                backgroundColor: RED
+                                            }}
+                                        />
+                                    </th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                {safeLogs.map((log, i) => (
+                                    <tr key={i} className="hover:bg-gray-50">
+                                        {columns.map(col => (
+                                            <td
+                                                key={String(col.key)}
+                                                className="px-2 py-1 border-l-2 bg-white"
+                                                style={{ borderColor: RED }}
+                                            >
+                                                {col.render
+                                                    ? col.render(log[col.key], log)
+                                                    : String(log[col.key])}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                                </tbody>
+
+                            </table>
+                        </div>
                     ) : (
                         safeLogs.map((log, i) => (
                             <div key={i} className="pl-3 border-l-2" style={{borderColor: RED}}>
@@ -198,7 +253,8 @@ export default function LogPanel<T>({title, logs, columns, filters, onDownload, 
                 </div>
 
                 {pagination ? (
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ebeef5] bg-white px-4 py-2.5 sm:px-6">
+                    <div
+                        className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ebeef5] bg-white px-4 py-2.5 sm:px-6">
                         <label className="flex items-center gap-2 text-xs text-slate-600 sm:text-sm">
                             <span className="whitespace-nowrap font-medium text-slate-500">На странице</span>
                             <select
