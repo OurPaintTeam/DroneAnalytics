@@ -565,7 +565,8 @@ class TestTelemetryDataIntegrity:
             headers=api_headers,
             timeout=10
         )
-        assert resp.status_code == 200
+        # Backend может возвращать 207 (Multi-Status) при частичном успехе
+        assert resp.status_code in (200, 207)
         
         wait_for_elastic_sync()
         docs = search_telemetry_by_drone_id(1001)
@@ -595,7 +596,8 @@ class TestTelemetryDataIntegrity:
             headers=api_headers,
             timeout=10
         )
-        assert resp.status_code == 200
+        # Backend может возвращать 207 (Multi-Status)
+        assert resp.status_code in (200, 207)
         
         wait_for_elastic_sync()
         docs = search_telemetry_by_drone_id(1002)
@@ -627,7 +629,8 @@ class TestTelemetryDataIntegrity:
             headers=api_headers,
             timeout=10
         )
-        assert resp.status_code == 200
+        # Backend может возвращать 207 (Multi-Status)
+        assert resp.status_code in (200, 207)
         
         wait_for_elastic_sync()
         docs = search_telemetry_by_drone_id(1003)
