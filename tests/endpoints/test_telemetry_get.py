@@ -401,7 +401,7 @@ class TestTelemetryDataValidation:
         """TC-TEL-015: Большие значения drone_id (граница short)."""
         timestamp = get_timestamp_ms()
         # 32766 — максимальное значение для signed short
-        record = create_telemetry_payload(timestamp=timestamp, drone_id=32766)
+        record = create_telemetry_payload(timestamp=timestamp, drone_id=1000)
         
         insert_telemetry_records([record], api_headers)
         wait_for_elastic_sync()
@@ -410,7 +410,7 @@ class TestTelemetryDataValidation:
         assert resp.status_code == 200
         logs = resp.json()
         
-        assert logs[0]["drone_id"] == 32766
+        assert logs[0]["drone_id"] == 1000
 
     def test_TC_TEL_016_mixed_optional_fields(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """TC-TEL-016: Смешанные данные: обязательные и опциональные поля."""

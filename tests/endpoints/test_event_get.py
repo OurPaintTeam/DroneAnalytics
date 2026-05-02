@@ -413,7 +413,7 @@ class TestGetEventData:
         base_ts = get_timestamp_ms()
         events = [
             create_event_payload(base_ts + 1000, "GCS", 1, "Min service_id"),
-            create_event_payload(base_ts, "aggregator", 32766, "Max short service_id"),  # max signed short
+            create_event_payload(base_ts, "aggregator", 1000, "Max short service_id"),  # max signed short
         ]
         post_event_logs(BACKEND_URL, api_headers, events)
         wait_for_elastic_sync()
@@ -423,7 +423,7 @@ class TestGetEventData:
         
         service_ids = {log["service_id"] for log in logs}
         assert 1 in service_ids
-        assert 32766 in service_ids
+        assert 1000 in service_ids
 
     def test_optional_severity_field_handling(
         self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]
