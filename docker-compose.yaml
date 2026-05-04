@@ -14,6 +14,10 @@ services:
       - backend.yaml
     env_file:
       - ./configs/backend.env
+    environment:
+      - COVERAGE_MODE=${COVERAGE_MODE:-false}
+    volumes:
+      - ./coverage_data:/app/coverage_data
     depends_on:
       - elastic
       - redis
@@ -110,6 +114,9 @@ services:
       - all-net
       - rs-net
       - es-net
+    volumes:
+      - ./coverage_data:/app/coverage_data
+      - ./backend/app:/app/app
     depends_on:
       proxy:
         condition: service_started

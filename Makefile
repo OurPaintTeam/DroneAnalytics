@@ -27,7 +27,7 @@ healthcheck: prod clean
 .PHONY: tests secrets
 
 tests:
-	docker compose --profile tests up -d --build
+	COVERAGE_MODE=true docker compose --profile tests up -d --build
 	docker logs -f tests
 
 watch:
