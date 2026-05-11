@@ -9,4 +9,3 @@ RUN chmod +x /docker-entrypoint.sh
 RUN mkdir -p /app/coverage_data && chown appuser:appuser /app/coverage_data
 USER appuser
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
