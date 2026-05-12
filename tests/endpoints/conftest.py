@@ -24,7 +24,8 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8080")
 API_KEY = os.getenv("DRONE_API_KEY", "change-me-api-key")
 AUTH_USERNAME = _require_env("AUTH_USERNAME")
 AUTH_PASSWORD = _require_env("AUTH_PASSWORD")
-SECRET_KEY = os.getenv("DRONE_SECRET_KEY", secrets.token_urlsafe(48)).encode("utf-8")
+# Тестовый секретный ключ для генерации JWT в тестах (должен совпадать с backend secrets)
+SECRET_KEY = os.getenv("DRONE_SECRET_KEY", "replace-with-a-long-random-string").encode("utf-8")
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 JWT_ALGORITHM = "HS256"
@@ -115,6 +116,7 @@ def auth_credentials() -> Dict[str, str]:
 def logged_in_tokens(auth_credentials: Dict[str, str]) -> Dict[str, Any]:
     """
     Фикстура: выполняет логин и возвращает пару токенов.
+    Refresh токен берётся из cookie, access_token из JSON ответа.
     Используется для тестов GET-эндпоинтов.
     """
     resp = requests.post(
@@ -124,9 +126,11 @@ def logged_in_tokens(auth_credentials: Dict[str, str]) -> Dict[str, Any]:
     )
     assert resp.status_code == 200, f"Login failed: {resp.text}"
     data = resp.json()
+    refresh_token = resp.cookies.get("refresh_token")
+    assert refresh_token is not None, "refresh_token not found in cookies"
     return {
         "access_token": data["access_token"],
-        "refresh_token": data["refresh_token"]
+        "refresh_token": refresh_token
     }
 
 

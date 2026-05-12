@@ -29,8 +29,10 @@ def test_proxy_forwards_auth_login(proxy_base_url: str, proxy_auth_credentials: 
     assert response.status_code == 200, response.text
     data = response.json()
     assert "access_token" in data
-    assert "refresh_token" in data
     assert data.get("token_type") == "Bearer"
+    assert isinstance(data.get("expires_in"), int)
+    assert data["expires_in"] > 0
+    assert isinstance(response.cookies.get("refresh_token"), str)
 
 
 def test_proxy_forwards_log_basic(proxy_base_url: str, proxy_api_headers: dict[str, str]):

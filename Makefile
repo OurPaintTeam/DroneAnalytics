@@ -1,7 +1,7 @@
 all: prod
 
 prod:
-	docker compose up -d --build
+	docker compose --profile app up -d --build
 
 # It's just a example of certs. It's not for production. IT'S FOR LOCAL TESTS
 secrets:
@@ -29,6 +29,8 @@ healthcheck: prod clean
 tests:
 	docker compose --profile tests up -d --build
 	docker logs -f tests
+	docker compose stop backend-coverage
+	docker compose run --rm --no-deps tests sh -c "if ls /app/coverage_data/.coverage.* 1>/dev/null 2>&1; then coverage combine --keep /app/coverage_data/.coverage.* 2>/dev/null || true; COVERAGE_RCFILE=/dev/null coverage report --fail-under=0 --show-missing; else echo 'No coverage data found in /app/coverage_data/. Run make clean and check backend shutdown logs.'; fi"
 
 watch:
 	docker compose watch

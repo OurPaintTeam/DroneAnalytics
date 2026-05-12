@@ -8,4 +8,5 @@ dependencies = [
     "PyJWT==2.12.0",
     "PyYAML==6.0.2",
     "requests==2.33.0",
+    "coverage==7.13.5"
 ]

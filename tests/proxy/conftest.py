@@ -49,7 +49,7 @@ def proxy_api_headers() -> Dict[str, str]:
 
 @pytest.fixture
 def proxy_logged_in_tokens(proxy_base_url: str, proxy_auth_credentials: Dict[str, str]) -> Dict[str, Any]:
-    """Логин через proxy и возврат access/refresh токенов."""
+    """Логин через proxy и возврат access-токена + refresh-токена из cookie."""
     with requests.Session() as session:
         session.trust_env = False
         response = session.post(
@@ -60,9 +60,11 @@ def proxy_logged_in_tokens(proxy_base_url: str, proxy_auth_credentials: Dict[str
         )
     assert response.status_code == 200, response.text
     data = response.json()
+    refresh_cookie = response.cookies.get("refresh_token")
+    assert isinstance(refresh_cookie, str) and len(refresh_cookie) > 0
     return {
         "access_token": data["access_token"],
-        "refresh_token": data["refresh_token"],
+        "refresh_token": refresh_cookie,
     }
 
 
