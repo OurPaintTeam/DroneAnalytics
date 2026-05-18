@@ -34,6 +34,32 @@ interface LogCountResponse {
     total?: unknown
 }
 
+interface AccountState {
+    account_id: string
+    name: string
+    service: string | null
+    balance: number
+    reserved: number
+    available: number
+    updated_at: number
+}
+
+interface AccountsState {
+    accounts: AccountState[]
+    total_balance: number
+    total_reserved: number
+    total_available: number
+    updated_at: number
+}
+
+interface AccountsStateResponse {
+    accounts?: unknown
+    total_balance?: unknown
+    total_reserved?: unknown
+    total_available?: unknown
+    updated_at?: unknown
+}
+
 const droneServices = new Set<string>(LOG_DRONE_TYPES)
 
 const sourceLabels: Record<ActivitySource, string> = {
@@ -54,6 +80,10 @@ function pluralRu(value: number, one: string, few: string, many: string): string
 function formatDateTime(timestamp: number | null): string {
     if (timestamp === null) return "Логов за период нет"
     return new Date(timestamp).toLocaleString()
+}
+
+function formatNumber(value: number): string {
+    return new Intl.NumberFormat("ru-RU").format(value)
 }
 
 function formatRelative(timestamp: number | null): string {
@@ -167,6 +197,65 @@ async function fetchSafetyIncidentTotal(fromTs: number, toTs: number, access: st
     return data.total
 }
 
+function isAccountState(value: unknown): value is AccountState {
+    if (typeof value !== "object" || value === null) return false
+
+    const item = value as Record<string, unknown>
+
+    return typeof item.account_id === "string"
+        && typeof item.name === "string"
+        && (typeof item.service === "string" || item.service === null)
+        && typeof item.balance === "number"
+        && Number.isFinite(item.balance)
+        && typeof item.reserved === "number"
+        && Number.isFinite(item.reserved)
+        && typeof item.available === "number"
+        && Number.isFinite(item.available)
+        && typeof item.updated_at === "number"
+        && Number.isFinite(item.updated_at)
+}
+
+async function fetchAccounts(access: string): Promise<AccountsState> {
+    let res: Response
+
+    try {
+        res = await fetch(`${BACKEND_URL}/accounts`, {
+            headers: {Authorization: `Bearer ${access}`},
+        })
+    } catch {
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
+    }
+
+    if (!res.ok) {
+        throw new ApiError(mapStatus(res.status))
+    }
+
+    const data = await res.json() as AccountsStateResponse
+
+    if (
+        !Array.isArray(data.accounts)
+        || !data.accounts.every(isAccountState)
+        || typeof data.total_balance !== "number"
+        || !Number.isFinite(data.total_balance)
+        || typeof data.total_reserved !== "number"
+        || !Number.isFinite(data.total_reserved)
+        || typeof data.total_available !== "number"
+        || !Number.isFinite(data.total_available)
+        || typeof data.updated_at !== "number"
+        || !Number.isFinite(data.updated_at)
+    ) {
+        throw new ApiError(ApiErrorCode.INVALID_RESPONSE)
+    }
+
+    return {
+        accounts: data.accounts,
+        total_balance: data.total_balance,
+        total_reserved: data.total_reserved,
+        total_available: data.total_available,
+        updated_at: data.updated_at,
+    }
+}
+
 function latestTimestamp(logs: ActivityLog[]): number | null {
     const timestamps = logs
         .map(log => log.timestamp)
@@ -216,6 +305,7 @@ export default function GeneralPage() {
     const [rows, setRows] = useState<ActivityRow[]>([])
     const [safetyIncidents, setSafetyIncidents] = useState<SafetyIncident[]>([])
     const [safetyIncidentTotal, setSafetyIncidentTotal] = useState<number | null>(null)
+    const [accountState, setAccountState] = useState<AccountsState | null>(null)
     const [loading, setLoading] = useState(true)
     const [errorText, setErrorText] = useState<string | null>(null)
     const [updatedAt, setUpdatedAt] = useState<number | null>(null)
@@ -236,20 +326,23 @@ export default function GeneralPage() {
 
             const toTs = Date.now()
             const fromTs = toTs - ACTIVITY_WINDOW_MS
-            const [data, incidents, incidentTotal] = await Promise.all([
+            const [data, incidents, incidentTotal, accounts] = await Promise.all([
                 Promise.all(LOG_SERVICE_TYPES.map(service => fetchServiceActivity(service, fromTs, toTs, access))),
                 fetchSafetyIncidents(fromTs, toTs, access),
                 fetchSafetyIncidentTotal(fromTs, toTs, access),
+                fetchAccounts(access),
             ])
 
             setRows(data)
             setSafetyIncidents(incidents)
             setSafetyIncidentTotal(incidentTotal)
+            setAccountState(accounts)
             setUpdatedAt(Date.now())
         } catch (e) {
             setRows([])
             setSafetyIncidents([])
             setSafetyIncidentTotal(null)
+            setAccountState(null)
             setErrorText(handleApiErrorBackend(e))
             handleApiError(e)
             handleAuthError(e, navigate)
@@ -266,6 +359,7 @@ export default function GeneralPage() {
     const silentCount = rows.length - activeCount
     const safetyIncidentCount = safetyIncidents.length
     const displayedSafetyTotal = safetyIncidentTotal ?? safetyIncidentCount
+    const accountRows = accountState?.accounts ?? []
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-[#f6f7fb] px-3 py-4 text-slate-800 sm:px-4 md:px-6">
@@ -275,7 +369,7 @@ export default function GeneralPage() {
                 <header className="flex flex-col gap-4 border-b border-[#ebeef5] px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-                            Активность сервисов
+                            Инфопанель
                         </h1>
                     </div>
 
@@ -369,6 +463,92 @@ export default function GeneralPage() {
                                 <tr>
                                     <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
                                         За последние 24 часа safety-инциденты не найдены.
+                                    </td>
+                                </tr>
+                            )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="border-b border-[#ebeef5] px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <h2 className="text-base font-bold text-slate-900">Состояние счетов игроков</h2>
+                        </div>
+
+                        <div className="grid gap-px border-y border-[#ebeef5] bg-[#ebeef5] sm:grid-cols-3 lg:min-w-[520px]">
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Баланс</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">
+                                    {accountState ? formatNumber(accountState.total_balance) : "—"}
+                                </p>
+                            </div>
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Резерв</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-[#9F2D20]">
+                                    {accountState ? formatNumber(accountState.total_reserved) : "—"}
+                                </p>
+                            </div>
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Доступно</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-emerald-700">
+                                    {accountState ? formatNumber(accountState.total_available) : "—"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                            <thead>
+                            <tr className="border-b border-[#ebeef5] text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                                <th className="px-2 py-3">Игрок</th>
+                                <th className="px-2 py-3">Сервис</th>
+                                <th className="px-2 py-3">Баланс</th>
+                                <th className="px-2 py-3">Резерв</th>
+                                <th className="px-2 py-3">Доступно</th>
+                                <th className="px-2 py-3">Обновлено</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={6}>
+                                        Загружаем счета...
+                                    </td>
+                                </tr>
+                            ) : errorText ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={6}>
+                                        {errorText}
+                                    </td>
+                                </tr>
+                            ) : accountRows.length ? (
+                                accountRows.map(account => (
+                                    <tr key={account.account_id} className="border-b border-[#f0f2f7] transition hover:bg-[#fbfcff]">
+                                        <td className="px-2 py-3 font-semibold text-slate-900">{account.name}</td>
+                                        <td className="px-2 py-3 font-mono text-sm text-slate-600">
+                                            {account.service ?? "не привязан"}
+                                        </td>
+                                        <td className="px-2 py-3 font-semibold tabular-nums text-slate-800">
+                                            {formatNumber(account.balance)}
+                                        </td>
+                                        <td className="px-2 py-3 tabular-nums text-slate-600">
+                                            {formatNumber(account.reserved)}
+                                        </td>
+                                        <td className="px-2 py-3 font-semibold tabular-nums text-emerald-700">
+                                            {formatNumber(account.available)}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-500">
+                                            {new Date(account.updated_at).toLocaleString()}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={6}>
+                                        Счета игроков не найдены.
                                     </td>
                                 </tr>
                             )}
