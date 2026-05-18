@@ -88,6 +88,7 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
+REDIS_URL = os.getenv("REDIS_URL", "redis://app:soStrongApp@redis:6379/0")
 CORS_ORIGINS = [
     x.strip()
     for x in os.getenv("DRONE_CORS_ORIGINS", "*").split(",")

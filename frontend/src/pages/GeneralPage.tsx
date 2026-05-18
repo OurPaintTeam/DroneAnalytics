@@ -1,140 +1,620 @@
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined"
+import {useCallback, useEffect, useMemo, useState} from "react"
+import {useNavigate} from "react-router-dom"
 
-const GeneralPage = () => {
+import {BACKEND_URL, RED} from "../config"
+import {checkBackend} from "../api/fetchLogs"
+import {LOG_DRONE_TYPES, LOG_SERVICE_TYPES, type LogServiceType} from "../logConstants"
+import {ApiError, ApiErrorCode, handleApiError, handleApiErrorBackend, handleAuthError} from "../components/notify"
 
-        return (
-            <div className="min-h-screen bg-white flex items-center justify-center">
-            </div>
-        )
+const ACTIVITY_WINDOW_MS = 24 * 60 * 60 * 1000
+const ACTIVITY_LIMIT = 1
+const SAFETY_INCIDENT_LIMIT = 5
+
+type ActivitySource = "event" | "safety" | "telemetry"
+
+interface ActivityLog {
+    timestamp?: unknown
 }
-export default GeneralPage
 
-// import { useState, useMemo } from "react"
-// import { LOG_SERVICE_TYPES } from "../logConstants.ts"
-//
-// const getRandomStatus = () => {
-//     return Math.random() > 0.5 ? "Working" : "Error"
-// }
-//
-// const getRandomTime = () => {
-//     const now = Date.now()
-//     const randomOffset = Math.floor(Math.random() * 10 * 60 * 1000)
-//     return new Date(now - randomOffset)
-// }
-//
-// const initialCommands = LOG_SERVICE_TYPES.map((service, index) => ({
-//     id: index,
-//     name: service,
-//     status: getRandomStatus(),
-//     updatedAt: getRandomTime(),
-// }))
-//
-// const GeneralPage = () => {
-//     const [filter, setFilter] = useState<"All" | "Working" | "Error">("All")
-//     const [commands] = useState(initialCommands)
-//
-//     const okCount = commands.filter(c => c.status === "Working").length
-//     const errorCount = commands.filter(c => c.status === "Error").length
-//
-//     const filteredCommands = useMemo(() => {
-//         if (filter === "All") return commands
-//         return commands.filter(cmd => cmd.status === filter)
-//     }, [commands, filter])
-//
-//     const btnBase =
-//         "px-5 py-2 text-sm font-semibold shadow-sm transition"
-//
-//     return (
-//         <div className="min-h-screen bg-gray-100 p-6">
-//
-//             <h1 className="text-2xl font-bold text-center mb-4 text-gray-800">
-//                 Состояние системы
-//             </h1>
-//
-//             {/* 🎛 Control Panel */}
-//
-//             <div className="flex justify-center mb-4">
-//
-//                 <div className="flex rounded-md overflow-hidden shadow">
-//
-//                     {/* OK */}
-//                     <button
-//                         onClick={() => setFilter("Working")}
-//                         className={`${btnBase} ${
-//                             filter === "Working"
-//                                 ? "bg-green-600 text-white"
-//                                 : "bg-white text-green-600 "
-//                         }`}
-//                     >
-//                         Working {okCount}
-//                     </button>
-//
-//                     {/* ALL */}
-//                     <button
-//                         onClick={() => setFilter("All")}
-//                         className={`${btnBase} ${
-//                             filter === "All"
-//                                 ? "bg-white text-gray-900  "
-//                                 : "bg-white text-gray-600  "
-//                         }`}
-//                     >
-//                         All {commands.length}
-//                     </button>
-//
-//                     {/* ERROR */}
-//                     <button
-//                         onClick={() => setFilter("Error")}
-//                         className={`${btnBase} ${
-//                             filter === "Error"
-//                                 ? "bg-red-600 text-white"
-//                                 : "bg-white text-red-600 "
-//                         }`}
-//                     >
-//                         Error {errorCount}
-//                     </button>
-//
-//                 </div>
-//             </div>
-//
-//             {/* ➖ Разделитель */}
-//             <div className="h-px bg-gray-300 mb-6" />
-//
-//             {/* 📦 Список */}
-//             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-//                 {filteredCommands.map((cmd) => (
-//                     <div
-//                         key={cmd.id}
-//                         className={`p-3 rounded-xl shadow-sm border-l-4
-//                         ${
-//                             cmd.status === "Working"
-//                                 ? "bg-green-50 border-green-500"
-//                                 : "bg-red-50 border-red-500"
-//                         }`}
-//                     >
-//                         <h2 className="text-sm font-semibold capitalize">
-//                             {cmd.name}
-//                         </h2>
-//
-//                         <p
-//                             className={`mt-1 text-xs font-medium
-//                             ${
-//                                 cmd.status === "Working"
-//                                     ? "text-green-600"
-//                                     : "text-red-600"
-//                             }`}
-//                         >
-//                             {cmd.status === "Working" ? "Working" : "ERROR"}
-//                         </p>
-//
-//                         <p className="mt-2 text-[10px] text-gray-500">
-//                             Последнее время ответа сервиса:{" "}
-//                             {cmd.updatedAt.toLocaleTimeString()}
-//                         </p>
-//                     </div>
-//                 ))}
-//             </div>
-//         </div>
-//     )
-// }
-//
-// export default GeneralPage
-// */
+interface ActivityRow {
+    service: LogServiceType
+    lastSeen: number | null
+    sources: ActivitySource[]
+}
+
+interface SafetyIncident extends ActivityLog {
+    service?: unknown
+    service_id?: unknown
+    severity?: unknown
+    message?: unknown
+}
+
+interface LogCountResponse {
+    total?: unknown
+}
+
+interface AccountState {
+    account_id: string
+    name: string
+    service: string | null
+    balance: number
+    reserved: number
+    available: number
+    updated_at: number
+}
+
+interface AccountsState {
+    accounts: AccountState[]
+    total_balance: number
+    total_reserved: number
+    total_available: number
+    updated_at: number
+}
+
+interface AccountsStateResponse {
+    accounts?: unknown
+    total_balance?: unknown
+    total_reserved?: unknown
+    total_available?: unknown
+    updated_at?: unknown
+}
+
+const droneServices = new Set<string>(LOG_DRONE_TYPES)
+
+const sourceLabels: Record<ActivitySource, string> = {
+    event: "события",
+    safety: "безопасность",
+    telemetry: "телеметрия",
+}
+
+function pluralRu(value: number, one: string, few: string, many: string): string {
+    const mod10 = value % 10
+    const mod100 = value % 100
+
+    if (mod10 === 1 && mod100 !== 11) return one
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+    return many
+}
+
+function formatDateTime(timestamp: number | null): string {
+    if (timestamp === null) return "Логов за период нет"
+    return new Date(timestamp).toLocaleString()
+}
+
+function formatNumber(value: number): string {
+    return new Intl.NumberFormat("ru-RU").format(value)
+}
+
+function formatRelative(timestamp: number | null): string {
+    if (timestamp === null) return "нет подтверждённого лога"
+
+    const diff = Math.max(0, Date.now() - timestamp)
+    const minutes = Math.floor(diff / (60 * 1000))
+
+    if (minutes < 1) return "меньше минуты назад"
+    if (minutes < 60) return `${minutes} ${pluralRu(minutes, "минуту", "минуты", "минут")} назад`
+
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours} ${pluralRu(hours, "час", "часа", "часов")} назад`
+
+    const days = Math.floor(hours / 24)
+    return `${days} ${pluralRu(days, "день", "дня", "дней")} назад`
+}
+
+function buildActivityParams(fromTs: number, toTs: number, key: "service" | "drone", value: string) {
+    const params = new URLSearchParams()
+    params.set("from_ts", String(fromTs))
+    params.set("to_ts", String(toTs))
+    params.set("limit", String(ACTIVITY_LIMIT))
+    params.set("page", "1")
+    params.set(key, value)
+    return params
+}
+
+function buildSafetyIncidentParams(fromTs: number, toTs: number) {
+    const params = new URLSearchParams()
+    params.set("from_ts", String(fromTs))
+    params.set("to_ts", String(toTs))
+    params.set("limit", String(SAFETY_INCIDENT_LIMIT))
+    params.set("page", "1")
+    return params
+}
+
+function buildSafetyCountParams(fromTs: number, toTs: number) {
+    const params = new URLSearchParams()
+    params.set("from_ts", String(fromTs))
+    params.set("to_ts", String(toTs))
+    return params
+}
+
+function mapStatus(status: number): ApiErrorCode {
+    switch (status) {
+        case 401:
+            return ApiErrorCode.UNAUTHORIZED
+        case 403:
+            return ApiErrorCode.FORBIDDEN
+        case 404:
+            return ApiErrorCode.NOT_FOUND
+        case 500:
+            return ApiErrorCode.SERVER_ERROR
+        default:
+            return ApiErrorCode.SERVER_ERROR
+    }
+}
+
+async function fetchActivityLogs(path: string, params: URLSearchParams, access: string): Promise<ActivityLog[]> {
+    let res: Response
+
+    try {
+        res = await fetch(`${BACKEND_URL}${path}?${params.toString()}`, {
+            headers: {Authorization: `Bearer ${access}`},
+        })
+    } catch {
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
+    }
+
+    if (!res.ok) {
+        throw new ApiError(mapStatus(res.status))
+    }
+
+    const data = await res.json()
+
+    if (!Array.isArray(data)) {
+        throw new ApiError(ApiErrorCode.INVALID_RESPONSE)
+    }
+
+    return data as ActivityLog[]
+}
+
+async function fetchSafetyIncidents(fromTs: number, toTs: number, access: string): Promise<SafetyIncident[]> {
+    const logs = await fetchActivityLogs("/log/safety", buildSafetyIncidentParams(fromTs, toTs), access)
+
+    return logs as SafetyIncident[]
+}
+
+async function fetchSafetyIncidentTotal(fromTs: number, toTs: number, access: string): Promise<number> {
+    let res: Response
+
+    try {
+        res = await fetch(`${BACKEND_URL}/log/safety/count?${buildSafetyCountParams(fromTs, toTs).toString()}`, {
+            headers: {Authorization: `Bearer ${access}`},
+        })
+    } catch {
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
+    }
+
+    if (!res.ok) {
+        throw new ApiError(mapStatus(res.status))
+    }
+
+    const data = await res.json() as LogCountResponse
+
+    if (typeof data.total !== "number" || !Number.isFinite(data.total) || data.total < 0) {
+        throw new ApiError(ApiErrorCode.INVALID_RESPONSE)
+    }
+
+    return data.total
+}
+
+function isAccountState(value: unknown): value is AccountState {
+    if (typeof value !== "object" || value === null) return false
+
+    const item = value as Record<string, unknown>
+
+    return typeof item.account_id === "string"
+        && typeof item.name === "string"
+        && (typeof item.service === "string" || item.service === null)
+        && typeof item.balance === "number"
+        && Number.isFinite(item.balance)
+        && typeof item.reserved === "number"
+        && Number.isFinite(item.reserved)
+        && typeof item.available === "number"
+        && Number.isFinite(item.available)
+        && typeof item.updated_at === "number"
+        && Number.isFinite(item.updated_at)
+}
+
+async function fetchAccounts(access: string): Promise<AccountsState> {
+    let res: Response
+
+    try {
+        res = await fetch(`${BACKEND_URL}/accounts`, {
+            headers: {Authorization: `Bearer ${access}`},
+        })
+    } catch {
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
+    }
+
+    if (!res.ok) {
+        throw new ApiError(mapStatus(res.status))
+    }
+
+    const data = await res.json() as AccountsStateResponse
+
+    if (
+        !Array.isArray(data.accounts)
+        || !data.accounts.every(isAccountState)
+        || typeof data.total_balance !== "number"
+        || !Number.isFinite(data.total_balance)
+        || typeof data.total_reserved !== "number"
+        || !Number.isFinite(data.total_reserved)
+        || typeof data.total_available !== "number"
+        || !Number.isFinite(data.total_available)
+        || typeof data.updated_at !== "number"
+        || !Number.isFinite(data.updated_at)
+    ) {
+        throw new ApiError(ApiErrorCode.INVALID_RESPONSE)
+    }
+
+    return {
+        accounts: data.accounts,
+        total_balance: data.total_balance,
+        total_reserved: data.total_reserved,
+        total_available: data.total_available,
+        updated_at: data.updated_at,
+    }
+}
+
+function latestTimestamp(logs: ActivityLog[]): number | null {
+    const timestamps = logs
+        .map(log => log.timestamp)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+
+    if (!timestamps.length) return null
+
+    return Math.max(...timestamps)
+}
+
+async function fetchServiceActivity(
+    service: LogServiceType,
+    fromTs: number,
+    toTs: number,
+    access: string
+): Promise<ActivityRow> {
+    const requests: Array<Promise<{source: ActivitySource; lastSeen: number | null}>> = [
+        fetchActivityLogs("/log/event", buildActivityParams(fromTs, toTs, "service", service), access)
+            .then(logs => ({source: "event", lastSeen: latestTimestamp(logs)})),
+        fetchActivityLogs("/log/safety", buildActivityParams(fromTs, toTs, "service", service), access)
+            .then(logs => ({source: "safety", lastSeen: latestTimestamp(logs)})),
+    ]
+
+    if (droneServices.has(service)) {
+        requests.push(
+            fetchActivityLogs("/log/telemetry", buildActivityParams(fromTs, toTs, "drone", service), access)
+                .then(logs => ({source: "telemetry", lastSeen: latestTimestamp(logs)}))
+        )
+    }
+
+    const results = await Promise.all(requests)
+    const timestamps = results
+        .map(result => result.lastSeen)
+        .filter((value): value is number => value !== null)
+    const lastSeen = timestamps.length ? Math.max(...timestamps) : null
+
+    return {
+        service,
+        lastSeen,
+        sources: results
+            .filter(result => result.lastSeen !== null)
+            .map(result => result.source),
+    }
+}
+
+export default function GeneralPage() {
+    const [rows, setRows] = useState<ActivityRow[]>([])
+    const [safetyIncidents, setSafetyIncidents] = useState<SafetyIncident[]>([])
+    const [safetyIncidentTotal, setSafetyIncidentTotal] = useState<number | null>(null)
+    const [accountState, setAccountState] = useState<AccountsState | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [errorText, setErrorText] = useState<string | null>(null)
+    const [updatedAt, setUpdatedAt] = useState<number | null>(null)
+    const navigate = useNavigate()
+
+    const loadActivity = useCallback(async () => {
+        setLoading(true)
+        setErrorText(null)
+
+        try {
+            const access = localStorage.getItem("access_token")
+
+            if (!access) {
+                throw new ApiError(ApiErrorCode.NO_TOKEN)
+            }
+
+            await checkBackend()
+
+            const toTs = Date.now()
+            const fromTs = toTs - ACTIVITY_WINDOW_MS
+            const [data, incidents, incidentTotal, accounts] = await Promise.all([
+                Promise.all(LOG_SERVICE_TYPES.map(service => fetchServiceActivity(service, fromTs, toTs, access))),
+                fetchSafetyIncidents(fromTs, toTs, access),
+                fetchSafetyIncidentTotal(fromTs, toTs, access),
+                fetchAccounts(access),
+            ])
+
+            setRows(data)
+            setSafetyIncidents(incidents)
+            setSafetyIncidentTotal(incidentTotal)
+            setAccountState(accounts)
+            setUpdatedAt(Date.now())
+        } catch (e) {
+            setRows([])
+            setSafetyIncidents([])
+            setSafetyIncidentTotal(null)
+            setAccountState(null)
+            setErrorText(handleApiErrorBackend(e))
+            handleApiError(e)
+            handleAuthError(e, navigate)
+        } finally {
+            setLoading(false)
+        }
+    }, [navigate])
+
+    useEffect(() => {
+        void loadActivity()
+    }, [loadActivity])
+
+    const activeCount = useMemo(() => rows.filter(row => row.lastSeen !== null).length, [rows])
+    const silentCount = rows.length - activeCount
+    const safetyIncidentCount = safetyIncidents.length
+    const displayedSafetyTotal = safetyIncidentTotal ?? safetyIncidentCount
+    const accountRows = accountState?.accounts ?? []
+
+    return (
+        <div className="min-h-[calc(100vh-4rem)] bg-[#f6f7fb] px-3 py-4 text-slate-800 sm:px-4 md:px-6">
+            <section className="relative mx-auto flex max-w-7xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+                <div className="absolute left-0 right-0 top-0 h-[3px]" style={{backgroundColor: RED}}/>
+
+                <header className="flex flex-col gap-4 border-b border-[#ebeef5] px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                            Инфопанель
+                        </h1>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => void loadActivity()}
+                        disabled={loading}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#d8dce6] bg-[#fbfcff] px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-[1px] hover:border-[#c2c9d8] hover:bg-white disabled:pointer-events-none disabled:opacity-45"
+                    >
+                        <RefreshOutlinedIcon fontSize="small"/>
+                        Обновить
+                    </button>
+                </header>
+
+                <div className="grid gap-px border-b border-[#ebeef5] bg-[#ebeef5] sm:grid-cols-3">
+                    <div className="bg-white px-4 py-3 sm:px-6">
+                        <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Активны</p>
+                        <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">{activeCount}</p>
+                    </div>
+                    <div className="bg-white px-4 py-3 sm:px-6">
+                        <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Без свежих логов</p>
+                        <p className="mt-1 text-2xl font-bold tabular-nums text-slate-500">{silentCount}</p>
+                    </div>
+                    <div className="bg-white px-4 py-3 sm:px-6">
+                        <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Проверено</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                            {updatedAt ? new Date(updatedAt).toLocaleString() : "Ожидание данных"}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="border-b border-[#ebeef5] px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 className="text-base font-bold text-slate-900">Последние инциденты безопасности</h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Показано {safetyIncidentCount} из {displayedSafetyTotal} safety-логов за последние 24 часа; таблица ограничена {SAFETY_INCIDENT_LIMIT} последними записями.
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Всего за 24 часа</p>
+                            <p className="text-2xl font-bold tabular-nums text-[#9F2D20]">{displayedSafetyTotal}</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                            <thead>
+                            <tr className="border-b border-[#ebeef5] text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                                <th className="px-2 py-3">Время</th>
+                                <th className="px-2 py-3">Сервис</th>
+                                <th className="px-2 py-3">ID</th>
+                                <th className="px-2 py-3">Важность</th>
+                                <th className="px-2 py-3">Сообщение</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
+                                        Загружаем инциденты...
+                                    </td>
+                                </tr>
+                            ) : errorText ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
+                                        {errorText}
+                                    </td>
+                                </tr>
+                            ) : safetyIncidents.length ? (
+                                safetyIncidents.map((incident, index) => (
+                                    <tr key={`${String(incident.timestamp)}-${index}`} className="border-b border-[#f0f2f7] transition hover:bg-[#fbfcff]">
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {typeof incident.timestamp === "number" ? new Date(incident.timestamp).toLocaleString() : "нет времени"}
+                                        </td>
+                                        <td className="px-2 py-3 font-mono text-sm font-semibold text-slate-800">
+                                            {typeof incident.service === "string" ? incident.service : "не указан"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {typeof incident.service_id === "number" ? incident.service_id : "не указан"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {typeof incident.severity === "string" ? incident.severity : "не указана"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-700">
+                                            {typeof incident.message === "string" ? incident.message : "нет сообщения"}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
+                                        За последние 24 часа safety-инциденты не найдены.
+                                    </td>
+                                </tr>
+                            )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="border-b border-[#ebeef5] px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <h2 className="text-base font-bold text-slate-900">Состояние счетов игроков</h2>
+                        </div>
+
+                        <div className="grid gap-px border-y border-[#ebeef5] bg-[#ebeef5] sm:grid-cols-3 lg:min-w-[520px]">
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Баланс</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">
+                                    {accountState ? formatNumber(accountState.total_balance) : "—"}
+                                </p>
+                            </div>
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Резерв</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-[#9F2D20]">
+                                    {accountState ? formatNumber(accountState.total_reserved) : "—"}
+                                </p>
+                            </div>
+                            <div className="bg-white px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Доступно</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-emerald-700">
+                                    {accountState ? formatNumber(accountState.total_available) : "—"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                            <thead>
+                            <tr className="border-b border-[#ebeef5] text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                                <th className="px-2 py-3">Игрок</th>
+                                <th className="px-2 py-3">Сервис</th>
+                                <th className="px-2 py-3">Баланс</th>
+                                <th className="px-2 py-3">Резерв</th>
+                                <th className="px-2 py-3">Доступно</th>
+                                <th className="px-2 py-3">Обновлено</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={6}>
+                                        Загружаем счета...
+                                    </td>
+                                </tr>
+                            ) : errorText ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={6}>
+                                        {errorText}
+                                    </td>
+                                </tr>
+                            ) : accountRows.length ? (
+                                accountRows.map(account => (
+                                    <tr key={account.account_id} className="border-b border-[#f0f2f7] transition hover:bg-[#fbfcff]">
+                                        <td className="px-2 py-3 font-semibold text-slate-900">{account.name}</td>
+                                        <td className="px-2 py-3 font-mono text-sm text-slate-600">
+                                            {account.service ?? "не привязан"}
+                                        </td>
+                                        <td className="px-2 py-3 font-semibold tabular-nums text-slate-800">
+                                            {formatNumber(account.balance)}
+                                        </td>
+                                        <td className="px-2 py-3 tabular-nums text-slate-600">
+                                            {formatNumber(account.reserved)}
+                                        </td>
+                                        <td className="px-2 py-3 font-semibold tabular-nums text-emerald-700">
+                                            {formatNumber(account.available)}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-500">
+                                            {new Date(account.updated_at).toLocaleString()}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={6}>
+                                        Счета игроков не найдены.
+                                    </td>
+                                </tr>
+                            )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto px-4 py-4 sm:px-6">
+                    <div className="mb-3">
+                        <h2 className="text-base font-bold text-slate-900">Активность команд</h2>
+                    </div>
+                    <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                        <thead>
+                        <tr className="border-b border-[#ebeef5] text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                            <th className="px-2 py-3">Сервис</th>
+                            <th className="px-2 py-3">Статус</th>
+                            <th className="px-2 py-3">Последний лог</th>
+                            <th className="px-2 py-3">Источник</th>
+                            <th className="px-2 py-3">Давность</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {loading ? (
+                            <tr>
+                                <td className="px-2 py-8 text-center text-slate-500" colSpan={5}>
+                                    Загружаем активность...
+                                </td>
+                            </tr>
+                        ) : errorText ? (
+                            <tr>
+                                <td className="px-2 py-8 text-center text-slate-500" colSpan={5}>
+                                    {errorText}
+                                </td>
+                            </tr>
+                        ) : (
+                            rows.map(row => {
+                                const isActive = row.lastSeen !== null
+
+                                return (
+                                    <tr key={row.service} className="border-b border-[#f0f2f7] transition hover:bg-[#fbfcff]">
+                                        <td className="px-2 py-3 font-mono text-sm font-semibold text-slate-800">
+                                            {row.service}
+                                        </td>
+                                        <td className="px-2 py-3">
+                                            <span className={`inline-flex items-center gap-2 text-sm font-semibold ${isActive ? "text-emerald-700" : "text-slate-500"}`}>
+                                                <span
+                                                    className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.14)]" : "bg-slate-300"}`}
+                                                    aria-hidden
+                                                />
+                                                {isActive ? "Лог получен" : "Лога нет"}
+                                            </span>
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-600">{formatDateTime(row.lastSeen)}</td>
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {row.sources.length ? row.sources.map(source => sourceLabels[source]).join(", ") : "нет"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-500">{formatRelative(row.lastSeen)}</td>
+                                    </tr>
+                                )
+                            })
+                        )}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    )
+}

@@ -7,6 +7,7 @@ from app.models import (
     BasicLogItem,
     EventLogItem,
     EventLogResponse,
+    LogCountResponse,
     LogDroneType,
     LogServiceType,
     LogSeverityType,
@@ -176,6 +177,65 @@ def _get_logs_from_index(
 
     hits = data.get("hits", {}).get("hits", [])
     return [hit["_source"] for hit in hits]
+
+
+def _count_logs_from_index(
+    index: str,
+    *,
+    exclude_service: str | None = None,
+    from_ts: int | None = None,
+    to_ts: int | None = None,
+    term_filters: dict[str, str | int] | None = None,
+    message_match: str | None = None,
+) -> int:
+    query_body: dict = {}
+    q = build_log_list_query(
+        exclude_service=exclude_service,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        term_filters=term_filters,
+        message_match=message_match,
+    )
+    if q is not None:
+        query_body["query"] = q
+
+    try:
+        resp = requests.post(
+            f"{ELASTIC_URL}/{index}/_count",
+            json=query_body,
+            timeout=5,
+        )
+    except requests.RequestException:
+        audit_event("error", f"action=count status=failure index={index} reason=connection_error")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service is temporarily unavailable.",
+        )
+
+    if resp.status_code >= 300:
+        audit_event("error", f"action=count status=failure index={index} reason=upstream_error http_status={resp.status_code}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service returned an internal error.",
+        )
+
+    try:
+        data = resp.json()
+    except ValueError:
+        audit_event("error", f"action=count status=failure index={index} reason=invalid_response")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service returned an invalid response.",
+        )
+
+    count = data.get("count")
+    if not isinstance(count, int) or count < 0:
+        audit_event("error", f"action=count status=failure index={index} reason=invalid_count")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Log storage service returned an invalid response.",
+        )
+    return count
 
 
 
@@ -662,6 +722,43 @@ def get_safety(
         term_filters=term_filters if term_filters else None,
         message_match=message_match,
     )
+
+
+@router.get(
+    "/safety/count",
+    response_model=LogCountResponse,
+    summary="Count safety event logs",
+    description="Returns the exact number of safety events matching the same filters as GET /log/safety"
+)
+def count_safety(
+    from_ts: int | None = Query(None, ge=0, description="Нижняя граница timestamp (мс), включительно"),
+    to_ts: int | None = Query(None, ge=0, description="Верхняя граница timestamp (мс), включительно"),
+    service: LogServiceType | None = Query(None),
+    service_id: int | None = Query(None, ge=1, le=1000),
+    severity: LogSeverityType | None = Query(None),
+    message: str | None = Query(None, min_length=1, max_length=1024, description="Полнотекстовый поиск по полю message"),
+    _: dict = Depends(require_bearer_payload),
+):
+    validate_timestamp_range(from_ts, to_ts)
+    message_match = message
+    term_filters: dict[str, str | int] = {}
+    if service is not None:
+        term_filters["service"] = service
+    if service_id is not None:
+        term_filters["service_id"] = service_id
+    if severity is not None:
+        term_filters["severity"] = severity
+
+    return {
+        "total": _count_logs_from_index(
+            "safety",
+            exclude_service=AUDIT_SERVICE,
+            from_ts=from_ts,
+            to_ts=to_ts,
+            term_filters=term_filters if term_filters else None,
+            message_match=message_match,
+        )
+    }
 
 
 @router.get("/download/basic", summary="Download basic logs as CSV (by timestamp range)")

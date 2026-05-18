@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS
 from app.errors import register_exception_handlers
+from app.routes.accounts import router as accounts_router
 from app.routes.auth import router as auth_router
 from app.routes.logs import router as logs_router
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 
 register_exception_handlers(app)
+app.include_router(accounts_router)
 app.include_router(auth_router)
 app.include_router(logs_router)
 
