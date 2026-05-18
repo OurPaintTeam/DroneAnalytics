@@ -141,6 +141,118 @@ class TestGetSafetyLogs:
         # Убеждаемся, что аудит-лог действительно отфильтрован
         assert not any(log["service"] == "infopanel" for log in logs)
 
+    def test_count_safety_empty_index(self, bearer_headers: Dict[str, str]):
+        """TC-SAFETY-COUNT-001: Подсчёт safety-логов из пустого индекса."""
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/safety/count",
+            headers=bearer_headers,
+            timeout=10,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"total": 0}
+
+    def test_count_safety_matches_filters(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
+        """TC-SAFETY-COUNT-002: Подсчёт учитывает временной диапазон, сервис и severity."""
+        base_ts = get_timestamp_ms()
+        payload = [
+            create_event_payload(
+                event_type="safety_event",
+                service="regulator",
+                service_id=5,
+                severity="warning",
+                message="count target 1",
+                timestamp=base_ts,
+            ),
+            create_event_payload(
+                event_type="safety_event",
+                service="regulator",
+                service_id=5,
+                severity="warning",
+                message="count target 2",
+                timestamp=base_ts + 1,
+            ),
+            create_event_payload(
+                event_type="safety_event",
+                service="regulator",
+                service_id=5,
+                severity="critical",
+                message="different severity",
+                timestamp=base_ts + 2,
+            ),
+            create_event_payload(
+                event_type="safety_event",
+                service="insurance",
+                service_id=5,
+                severity="warning",
+                message="different service",
+                timestamp=base_ts + 3,
+            ),
+            create_event_payload(
+                event_type="event",
+                service="regulator",
+                service_id=5,
+                severity="warning",
+                message="regular event",
+                timestamp=base_ts + 4,
+            ),
+        ]
+
+        post_resp = post_event_logs(BACKEND_URL, api_headers, payload)
+        assert post_resp.status_code == 200
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/safety/count",
+            params={
+                "from_ts": base_ts,
+                "to_ts": base_ts + 2,
+                "service": "regulator",
+                "service_id": 5,
+                "severity": "warning",
+            },
+            headers=bearer_headers,
+            timeout=10,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"total": 2}
+
+    def test_count_safety_excludes_audit_service(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
+        """TC-SAFETY-COUNT-003: Подсчёт исключает внутренние audit-логи infopanel."""
+        timestamp = get_timestamp_ms()
+        payload = [
+            create_event_payload(
+                event_type="safety_event",
+                service="infopanel",
+                service_id=1,
+                message="audit should not be counted",
+                timestamp=timestamp,
+            ),
+            create_event_payload(
+                event_type="safety_event",
+                service="dronePort",
+                service_id=2,
+                message="external should be counted",
+                timestamp=timestamp + 1,
+            ),
+        ]
+
+        post_resp = post_event_logs(BACKEND_URL, api_headers, payload)
+        assert post_resp.status_code == 200
+        wait_for_elastic_sync()
+
+        resp = requests.get(
+            f"{BACKEND_URL}/log/safety/count",
+            headers=bearer_headers,
+            timeout=10,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"total": 1}
+
     # -------------------------------------------------------------------------
     # Сортировка по времени (desc)
     # -------------------------------------------------------------------------

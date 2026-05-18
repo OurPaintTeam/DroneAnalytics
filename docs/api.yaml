@@ -462,6 +462,52 @@ paths:
         502:
           $ref: '#/components/responses/LogStorageError'
 
+  /log/safety/count:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics ]
+      summary: count safety events
+      description: Returns exact count of safety events matching the same filters as /log/safety
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: service
+          schema:
+            $ref: '#/components/schemas/service'
+        - in: query
+          name: service_id
+          schema:
+            $ref: '#/components/schemas/id'
+        - in: query
+          name: severity
+          schema:
+            $ref: '#/components/schemas/severity'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogCount'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+
   /log/download/basic:
     get:
       security:
@@ -866,6 +912,17 @@ components:
         message:
           $ref: '#/components/schemas/message'
       required: [timestamp, service, service_id, message]
+
+    LogCount:
+      type: object
+      additionalProperties: false
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Exact number of logs matching the query.
+      required: [total]
 
     Token:
       type: object

@@ -102,3 +102,7 @@ class EventLogResponse(StrictModel):
     service_id: int = Field(ge=1, le=1000)
     severity: LogSeverityType | None = None
     message: str = Field(min_length=1, max_length=1024)
+
+
+class LogCountResponse(StrictModel):
+    total: int = Field(ge=0)
