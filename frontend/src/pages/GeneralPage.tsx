@@ -30,6 +30,10 @@ interface SafetyIncident extends ActivityLog {
     message?: unknown
 }
 
+interface LogCountResponse {
+    total?: unknown
+}
+
 const droneServices = new Set<string>(LOG_DRONE_TYPES)
 
 const sourceLabels: Record<ActivitySource, string> = {
@@ -87,6 +91,13 @@ function buildSafetyIncidentParams(fromTs: number, toTs: number) {
     return params
 }
 
+function buildSafetyCountParams(fromTs: number, toTs: number) {
+    const params = new URLSearchParams()
+    params.set("from_ts", String(fromTs))
+    params.set("to_ts", String(toTs))
+    return params
+}
+
 function mapStatus(status: number): ApiErrorCode {
     switch (status) {
         case 401:
@@ -130,6 +141,30 @@ async function fetchSafetyIncidents(fromTs: number, toTs: number, access: string
     const logs = await fetchActivityLogs("/log/safety", buildSafetyIncidentParams(fromTs, toTs), access)
 
     return logs as SafetyIncident[]
+}
+
+async function fetchSafetyIncidentTotal(fromTs: number, toTs: number, access: string): Promise<number> {
+    let res: Response
+
+    try {
+        res = await fetch(`${BACKEND_URL}/log/safety/count?${buildSafetyCountParams(fromTs, toTs).toString()}`, {
+            headers: {Authorization: `Bearer ${access}`},
+        })
+    } catch {
+        throw new ApiError(ApiErrorCode.NETWORK_ERROR)
+    }
+
+    if (!res.ok) {
+        throw new ApiError(mapStatus(res.status))
+    }
+
+    const data = await res.json() as LogCountResponse
+
+    if (typeof data.total !== "number" || !Number.isFinite(data.total) || data.total < 0) {
+        throw new ApiError(ApiErrorCode.INVALID_RESPONSE)
+    }
+
+    return data.total
 }
 
 function latestTimestamp(logs: ActivityLog[]): number | null {
@@ -180,6 +215,7 @@ async function fetchServiceActivity(
 export default function GeneralPage() {
     const [rows, setRows] = useState<ActivityRow[]>([])
     const [safetyIncidents, setSafetyIncidents] = useState<SafetyIncident[]>([])
+    const [safetyIncidentTotal, setSafetyIncidentTotal] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
     const [errorText, setErrorText] = useState<string | null>(null)
     const [updatedAt, setUpdatedAt] = useState<number | null>(null)
@@ -200,17 +236,20 @@ export default function GeneralPage() {
 
             const toTs = Date.now()
             const fromTs = toTs - ACTIVITY_WINDOW_MS
-            const [data, incidents] = await Promise.all([
+            const [data, incidents, incidentTotal] = await Promise.all([
                 Promise.all(LOG_SERVICE_TYPES.map(service => fetchServiceActivity(service, fromTs, toTs, access))),
                 fetchSafetyIncidents(fromTs, toTs, access),
+                fetchSafetyIncidentTotal(fromTs, toTs, access),
             ])
 
             setRows(data)
             setSafetyIncidents(incidents)
+            setSafetyIncidentTotal(incidentTotal)
             setUpdatedAt(Date.now())
         } catch (e) {
             setRows([])
             setSafetyIncidents([])
+            setSafetyIncidentTotal(null)
             setErrorText(handleApiErrorBackend(e))
             handleApiError(e)
             handleAuthError(e, navigate)
@@ -226,6 +265,7 @@ export default function GeneralPage() {
     const activeCount = useMemo(() => rows.filter(row => row.lastSeen !== null).length, [rows])
     const silentCount = rows.length - activeCount
     const safetyIncidentCount = safetyIncidents.length
+    const displayedSafetyTotal = safetyIncidentTotal ?? safetyIncidentCount
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-[#f6f7fb] px-3 py-4 text-slate-800 sm:px-4 md:px-6">
@@ -278,10 +318,13 @@ export default function GeneralPage() {
                         <div>
                             <h2 className="text-base font-bold text-slate-900">Последние инциденты безопасности</h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                Загружено {safetyIncidentCount} из последних {SAFETY_INCIDENT_LIMIT} safety-логов за последние 24 часа; это не полный total по хранилищу.
+                                Показано {safetyIncidentCount} из {displayedSafetyTotal} safety-логов за последние 24 часа; таблица ограничена {SAFETY_INCIDENT_LIMIT} последними записями.
                             </p>
                         </div>
-                        <div className="text-2xl font-bold tabular-nums text-[#9F2D20]">{safetyIncidentCount}</div>
+                        <div className="text-right">
+                            <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">Всего за 24 часа</p>
+                            <p className="text-2xl font-bold tabular-nums text-[#9F2D20]">{displayedSafetyTotal}</p>
+                        </div>
                     </div>
 
                     <div className="mt-3 overflow-x-auto">
