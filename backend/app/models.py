@@ -33,6 +33,16 @@ LogSeverityType = Literal[
     "emergency",
 ]
 
+AccountIdType = Literal[
+    "aggregator",
+    "operator",
+    "insurance",
+    "developer",
+    "regulator",
+    "orat_bas",
+    "customer",
+]
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -106,3 +116,21 @@ class EventLogResponse(StrictModel):
 
 class LogCountResponse(StrictModel):
     total: int = Field(ge=0)
+
+
+class AccountStateResponse(StrictModel):
+    account_id: AccountIdType
+    name: str = Field(min_length=1, max_length=128)
+    service: LogServiceType | None = None
+    balance: int = Field(ge=0)
+    reserved: int = Field(ge=0)
+    available: int = Field(ge=0)
+    updated_at: int = Field(ge=0)
+
+
+class AccountsStateResponse(StrictModel):
+    accounts: list[AccountStateResponse]
+    total_balance: int = Field(ge=0)
+    total_reserved: int = Field(ge=0)
+    total_available: int = Field(ge=0)
+    updated_at: int = Field(ge=0)
