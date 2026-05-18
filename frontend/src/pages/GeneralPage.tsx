@@ -274,15 +274,9 @@ export default function GeneralPage() {
 
                 <header className="flex flex-col gap-4 border-b border-[#ebeef5] px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
-                            Активность
-                        </p>
                         <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
                             Активность сервисов
                         </h1>
-                        <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                            Зелёный статус означает, что сервис отправлял принятый лог события, безопасности или телеметрии за последние 24 часа.
-                        </p>
                     </div>
 
                     <button
@@ -386,9 +380,6 @@ export default function GeneralPage() {
                 <div className="overflow-x-auto px-4 py-4 sm:px-6">
                     <div className="mb-3">
                         <h2 className="text-base font-bold text-slate-900">Активность команд</h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                            Зелёный статус строится только по факту принятого лога в пределах 24 часов.
-                        </p>
                     </div>
                     <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                         <thead>
