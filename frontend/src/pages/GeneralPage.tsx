@@ -9,6 +9,7 @@ import {ApiError, ApiErrorCode, handleApiError, handleApiErrorBackend, handleAut
 
 const ACTIVITY_WINDOW_MS = 24 * 60 * 60 * 1000
 const ACTIVITY_LIMIT = 1
+const SAFETY_INCIDENT_LIMIT = 5
 
 type ActivitySource = "event" | "safety" | "telemetry"
 
@@ -20,6 +21,13 @@ interface ActivityRow {
     service: LogServiceType
     lastSeen: number | null
     sources: ActivitySource[]
+}
+
+interface SafetyIncident extends ActivityLog {
+    service?: unknown
+    service_id?: unknown
+    severity?: unknown
+    message?: unknown
 }
 
 const droneServices = new Set<string>(LOG_DRONE_TYPES)
@@ -70,6 +78,15 @@ function buildActivityParams(fromTs: number, toTs: number, key: "service" | "dro
     return params
 }
 
+function buildSafetyIncidentParams(fromTs: number, toTs: number) {
+    const params = new URLSearchParams()
+    params.set("from_ts", String(fromTs))
+    params.set("to_ts", String(toTs))
+    params.set("limit", String(SAFETY_INCIDENT_LIMIT))
+    params.set("page", "1")
+    return params
+}
+
 function mapStatus(status: number): ApiErrorCode {
     switch (status) {
         case 401:
@@ -107,6 +124,12 @@ async function fetchActivityLogs(path: string, params: URLSearchParams, access: 
     }
 
     return data as ActivityLog[]
+}
+
+async function fetchSafetyIncidents(fromTs: number, toTs: number, access: string): Promise<SafetyIncident[]> {
+    const logs = await fetchActivityLogs("/log/safety", buildSafetyIncidentParams(fromTs, toTs), access)
+
+    return logs as SafetyIncident[]
 }
 
 function latestTimestamp(logs: ActivityLog[]): number | null {
@@ -156,6 +179,7 @@ async function fetchServiceActivity(
 
 export default function GeneralPage() {
     const [rows, setRows] = useState<ActivityRow[]>([])
+    const [safetyIncidents, setSafetyIncidents] = useState<SafetyIncident[]>([])
     const [loading, setLoading] = useState(true)
     const [errorText, setErrorText] = useState<string | null>(null)
     const [updatedAt, setUpdatedAt] = useState<number | null>(null)
@@ -176,14 +200,17 @@ export default function GeneralPage() {
 
             const toTs = Date.now()
             const fromTs = toTs - ACTIVITY_WINDOW_MS
-            const data = await Promise.all(
-                LOG_SERVICE_TYPES.map(service => fetchServiceActivity(service, fromTs, toTs, access))
-            )
+            const [data, incidents] = await Promise.all([
+                Promise.all(LOG_SERVICE_TYPES.map(service => fetchServiceActivity(service, fromTs, toTs, access))),
+                fetchSafetyIncidents(fromTs, toTs, access),
+            ])
 
             setRows(data)
+            setSafetyIncidents(incidents)
             setUpdatedAt(Date.now())
         } catch (e) {
             setRows([])
+            setSafetyIncidents([])
             setErrorText(handleApiErrorBackend(e))
             handleApiError(e)
             handleAuthError(e, navigate)
@@ -198,6 +225,7 @@ export default function GeneralPage() {
 
     const activeCount = useMemo(() => rows.filter(row => row.lastSeen !== null).length, [rows])
     const silentCount = rows.length - activeCount
+    const safetyIncidentCount = safetyIncidents.length
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-[#f6f7fb] px-3 py-4 text-slate-800 sm:px-4 md:px-6">
@@ -245,7 +273,80 @@ export default function GeneralPage() {
                     </div>
                 </div>
 
+                <div className="border-b border-[#ebeef5] px-4 py-4 sm:px-6">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 className="text-base font-bold text-slate-900">Последние инциденты безопасности</h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Загружено {safetyIncidentCount} из последних {SAFETY_INCIDENT_LIMIT} safety-логов за последние 24 часа; это не полный total по хранилищу.
+                            </p>
+                        </div>
+                        <div className="text-2xl font-bold tabular-nums text-[#9F2D20]">{safetyIncidentCount}</div>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                            <thead>
+                            <tr className="border-b border-[#ebeef5] text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                                <th className="px-2 py-3">Время</th>
+                                <th className="px-2 py-3">Сервис</th>
+                                <th className="px-2 py-3">ID</th>
+                                <th className="px-2 py-3">Важность</th>
+                                <th className="px-2 py-3">Сообщение</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
+                                        Загружаем инциденты...
+                                    </td>
+                                </tr>
+                            ) : errorText ? (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
+                                        {errorText}
+                                    </td>
+                                </tr>
+                            ) : safetyIncidents.length ? (
+                                safetyIncidents.map((incident, index) => (
+                                    <tr key={`${String(incident.timestamp)}-${index}`} className="border-b border-[#f0f2f7] transition hover:bg-[#fbfcff]">
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {typeof incident.timestamp === "number" ? new Date(incident.timestamp).toLocaleString() : "нет времени"}
+                                        </td>
+                                        <td className="px-2 py-3 font-mono text-sm font-semibold text-slate-800">
+                                            {typeof incident.service === "string" ? incident.service : "не указан"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {typeof incident.service_id === "number" ? incident.service_id : "не указан"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-600">
+                                            {typeof incident.severity === "string" ? incident.severity : "не указана"}
+                                        </td>
+                                        <td className="px-2 py-3 text-slate-700">
+                                            {typeof incident.message === "string" ? incident.message : "нет сообщения"}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td className="px-2 py-6 text-center text-slate-500" colSpan={5}>
+                                        За последние 24 часа safety-инциденты не найдены.
+                                    </td>
+                                </tr>
+                            )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div className="overflow-x-auto px-4 py-4 sm:px-6">
+                    <div className="mb-3">
+                        <h2 className="text-base font-bold text-slate-900">Активность команд</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Зелёный статус строится только по факту принятого лога в пределах 24 часов.
+                        </p>
+                    </div>
                     <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                         <thead>
                         <tr className="border-b border-[#ebeef5] text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
