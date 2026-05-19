@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Depends
+from typing import Any
 
 from app.audit import audit_safety
 from app.config import COOKIE_SAMESITE, COOKIE_SECURE, REFRESH_TTL_SECONDS
 from app.errors import auth_error
 from app.models import AccessTokenResponse, LoginRequest
 from app.security import consume_refresh_token, issue_access_token, issue_refresh_token, verify_user
+from app.dependencies import require_bearer_payload
 
 from app.models import AccessTokenStatusResponse
 from app.storage import now_ts

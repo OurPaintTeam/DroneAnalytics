@@ -462,6 +462,71 @@ paths:
         502:
           $ref: '#/components/responses/LogStorageError'
 
+  /log/safety/count:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics ]
+      summary: count safety events
+      description: Returns exact count of safety events matching the same filters as /log/safety
+      parameters:
+        - in: query
+          name: from_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: to_ts
+          schema:
+            $ref: '#/components/schemas/timestamp'
+        - in: query
+          name: service
+          schema:
+            $ref: '#/components/schemas/service'
+        - in: query
+          name: service_id
+          schema:
+            $ref: '#/components/schemas/id'
+        - in: query
+          name: severity
+          schema:
+            $ref: '#/components/schemas/severity'
+        - in: query
+          name: message
+          schema:
+            $ref: '#/components/schemas/message'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogCount'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        400:
+          $ref: '#/components/responses/ValidationError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+
+  /accounts:
+    get:
+      security:
+        - BearerAuth: []
+      tags: [ analytics ]
+      summary: get account states
+      description: Returns current account states for the main operational players.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsState'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        502:
+          $ref: '#/components/responses/LogStorageError'
+
   /log/download/basic:
     get:
       security:
@@ -866,6 +931,72 @@ components:
         message:
           $ref: '#/components/schemas/message'
       required: [timestamp, service, service_id, message]
+
+    LogCount:
+      type: object
+      additionalProperties: false
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Exact number of logs matching the query.
+      required: [total]
+
+    AccountState:
+      type: object
+      additionalProperties: false
+      properties:
+        account_id:
+          type: string
+          enum: ["aggregator", "operator", "insurance", "developer", "regulator", "orat_bas", "customer"]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        service:
+          allOf:
+            - $ref: '#/components/schemas/service'
+          nullable: true
+        balance:
+          type: integer
+          format: int64
+          minimum: 0
+        reserved:
+          type: integer
+          format: int64
+          minimum: 0
+        available:
+          type: integer
+          format: int64
+          minimum: 0
+        updated_at:
+          $ref: '#/components/schemas/timestamp'
+      required: [account_id, name, service, balance, reserved, available, updated_at]
+
+    AccountsState:
+      type: object
+      additionalProperties: false
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountState'
+        total_balance:
+          type: integer
+          format: int64
+          minimum: 0
+        total_reserved:
+          type: integer
+          format: int64
+          minimum: 0
+        total_available:
+          type: integer
+          format: int64
+          minimum: 0
+        updated_at:
+          $ref: '#/components/schemas/timestamp'
+      required: [accounts, total_balance, total_reserved, total_available, updated_at]
 
     Token:
       type: object

@@ -19,9 +19,15 @@
 Файл должен содержать как минимум:
 - `secret_key`
 - `api_keys`
+- `redis.username`
+- `redis.password`
 - `users`
+- `accounts`
 
 Пример структуры — в `secrets/README.md`.
+
+`accounts` задаёт статическое стартовое состояние для `GET /accounts`: роли, привязанные сервисы, `balance` и `reserved`.
+Поле `updated_at` хранится в Redis и обновляется backend-ом при успешной записи event/safety логов.
 
 ## Запуск
 
