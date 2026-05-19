@@ -106,6 +106,17 @@ def auth_logout(
         **request_kwargs,
     )
 
+def auth_check(
+    backend_url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> requests.Response:
+    """Выполняет GET /auth/check."""
+    return requests.get(
+        f"{backend_url}/auth/check",
+        headers=headers,
+        timeout=timeout,
+    )
 
 def assert_api_error(
     response: requests.Response,
