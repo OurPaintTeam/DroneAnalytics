@@ -541,7 +541,7 @@ export default function GeneralPage() {
                                             {formatNumber(account.available)}
                                         </td>
                                         <td className="px-2 py-3 text-slate-500">
-                                            {new Date(account.updated_at).toLocaleString()}
+                                            {account.updated_at > 0 ? new Date(account.updated_at).toLocaleString() : "нет логов"}
                                         </td>
                                     </tr>
                                 ))

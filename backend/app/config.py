@@ -1,10 +1,10 @@
 import logging
 import os
 from pathlib import Path
-import shlex
-from typing import Any
+from typing import Any, get_args
 
 import yaml
+from app.models import AccountIdType, LogServiceType
 
 _logger = logging.getLogger(__name__)
 
@@ -30,40 +30,6 @@ def _load_backend_secrets(path: str = "/run/secrets/backend.yaml") -> dict[str, 
         _fail(f"Backend secrets file must contain a mapping: {path}")
 
     return data
-
-
-def _load_secret_text(path: str) -> str:
-    secret_path = Path(path)
-    if not secret_path.is_file():
-        _fail(f"Secret file is missing: {path}")
-
-    try:
-        return secret_path.read_text(encoding="utf-8")
-    except Exception as exc:
-        _fail(f"Failed to read secret file {path}: {exc}")
-
-
-def _read_redis_credentials(path: str = "/run/secrets/redis-sec.acl", username: str = "app") -> tuple[str, str]:
-    for raw_line in _load_secret_text(path).splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        try:
-            tokens = shlex.split(line)
-        except ValueError as exc:
-            _fail(f"Failed to parse Redis ACL secret {path}: {exc}")
-
-        if len(tokens) < 2 or tokens[0] != "user" or tokens[1] != username:
-            continue
-
-        password_token = next((token for token in tokens[2:] if token.startswith(">") and len(token) > 1), None)
-        if password_token is None:
-            _fail(f"Redis ACL entry for user {username} does not contain a password")
-
-        return username, password_token[1:]
-
-    _fail(f"Redis ACL entry for user {username} is missing in {path}")
 
 
 def _looks_like_password_hash(value: str) -> bool:
@@ -109,6 +75,86 @@ def _normalize_api_keys(raw: Any) -> list[str]:
     return keys
 
 
+def _normalize_redis(raw: Any) -> tuple[str, str]:
+    if not isinstance(raw, dict):
+        _fail("redis section is required in secrets/backend.yaml")
+
+    username = raw.get("username")
+    password = raw.get("password")
+
+    if not isinstance(username, str) or not username.strip():
+        _fail("redis.username is required in secrets/backend.yaml")
+    if not isinstance(password, str) or not password.strip():
+        _fail("redis.password is required in secrets/backend.yaml")
+
+    return username.strip(), password.strip()
+
+
+def _normalize_account_services(raw: Any, account_id: str) -> list[str]:
+    allowed_services = set(get_args(LogServiceType))
+
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        _fail(f"accounts[{account_id}].services must be a list")
+
+    services: list[str] = []
+    seen: set[str] = set()
+    for index, service in enumerate(raw):
+        if not isinstance(service, str) or not service.strip():
+            _fail(f"accounts[{account_id}].services[{index}] must be a non-empty string")
+        normalized = service.strip()
+        if normalized not in allowed_services:
+            _fail(f"accounts[{account_id}].services[{index}] has unsupported service: {normalized}")
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        services.append(normalized)
+    return services
+
+
+def _normalize_accounts(raw: Any) -> list[dict[str, Any]]:
+    allowed_account_ids = set(get_args(AccountIdType))
+
+    if not isinstance(raw, list) or not raw:
+        _fail("accounts is required in secrets/backend.yaml")
+
+    accounts: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            _fail(f"accounts[{index}] must be a mapping")
+
+        account_id = item.get("account_id")
+        name = item.get("name")
+        balance = item.get("balance")
+        reserved = item.get("reserved")
+
+        if not isinstance(account_id, str) or account_id not in allowed_account_ids:
+            _fail(f"accounts[{index}].account_id must be one of {sorted(allowed_account_ids)}")
+        if account_id in seen_ids:
+            _fail(f"accounts contains duplicate account_id: {account_id}")
+        if not isinstance(name, str) or not name.strip():
+            _fail(f"accounts[{account_id}].name must be a non-empty string")
+        if not isinstance(balance, int) or balance < 0:
+            _fail(f"accounts[{account_id}].balance must be a non-negative integer")
+        if not isinstance(reserved, int) or reserved < 0:
+            _fail(f"accounts[{account_id}].reserved must be a non-negative integer")
+
+        seen_ids.add(account_id)
+        accounts.append(
+            {
+                "account_id": account_id,
+                "name": name.strip(),
+                "services": _normalize_account_services(item.get("services"), account_id),
+                "balance": balance,
+                "reserved": reserved,
+            }
+        )
+
+    return accounts
+
+
 _backend_secrets = _load_backend_secrets()
 
 _secret_key = _backend_secrets.get("secret_key")
@@ -117,6 +163,8 @@ if not isinstance(_secret_key, str) or not _secret_key.strip():
 
 _users = _normalize_users(_backend_secrets.get("users"))
 _api_keys = _normalize_api_keys(_backend_secrets.get("api_keys"))
+_redis_user, _redis_password = _normalize_redis(_backend_secrets.get("redis"))
+_accounts = _normalize_accounts(_backend_secrets.get("accounts"))
 
 SECRET_KEY = _secret_key.encode("utf-8")
 JWT_ALGORITHM = "HS256"
@@ -126,9 +174,8 @@ ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
-REDIS_USER, REDIS_PASSWORD = _read_redis_credentials(
-    username=os.getenv("REDIS_USER", "app"),
-)
+REDIS_USER = _redis_user
+REDIS_PASSWORD = _redis_password
 CORS_ORIGINS = [
     x.strip()
     for x in os.getenv("DRONE_CORS_ORIGINS", "*").split(",")
@@ -138,3 +185,4 @@ COOKIE_SECURE = True
 COOKIE_SAMESITE = "Strict"
 AUTH_USERS = _users
 API_KEYS = _api_keys
+ACCOUNT_SEEDS = _accounts

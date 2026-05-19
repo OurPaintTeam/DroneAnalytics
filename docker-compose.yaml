@@ -12,7 +12,6 @@ services:
       - rs-net
     secrets:
       - backend.yaml
-      - redis-sec.acl
     env_file:
       - ./configs/backend.env
     depends_on:

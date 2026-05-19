@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 
+from app.account_store import AccountStoreError, touch_accounts_for_services
 from app.audit import AUDIT_SERVICE, audit_event
 from app.dependencies import require_api_key, require_bearer_payload
 from app.models import (
@@ -118,6 +119,19 @@ def _partial_or_ok_response(total: int, accepted: int, errors: list[dict]) -> JS
     }
     status_code = status.HTTP_200_OK if not errors else status.HTTP_207_MULTI_STATUS
     return JSONResponse(status_code=status_code, content=body)
+
+
+def _accepted_docs(docs: list[dict], source_indices: list[int], errors: list[dict]) -> list[dict]:
+    rejected_indices = {
+        error["index"]
+        for error in errors
+        if isinstance(error, dict) and isinstance(error.get("index"), int)
+    }
+    return [
+        doc
+        for doc, source_index in zip(docs, source_indices)
+        if source_index not in rejected_indices
+    ]
 
 
 def _get_logs_from_index(
@@ -564,10 +578,24 @@ def ingest_event(
         event_indexed, event_errors = _bulk_index("event", event_docs, event_doc_indices)
         indexed += event_indexed
         errors.extend(event_errors)
+        try:
+            touch_accounts_for_services(
+                (doc["service"], doc["timestamp"])
+                for doc in _accepted_docs(event_docs, event_doc_indices, event_errors)
+            )
+        except AccountStoreError:
+            audit_event("warning", "action=account_heartbeat status=failure source=event reason=redis_unavailable")
     if safety_docs:
         safety_indexed, safety_errors = _bulk_index("safety", safety_docs, safety_doc_indices)
         indexed += safety_indexed
         errors.extend(safety_errors)
+        try:
+            touch_accounts_for_services(
+                (doc["service"], doc["timestamp"])
+                for doc in _accepted_docs(safety_docs, safety_doc_indices, safety_errors)
+            )
+        except AccountStoreError:
+            audit_event("warning", "action=account_heartbeat status=failure source=safety reason=redis_unavailable")
 
     total = len(payload)
     if indexed == 0:

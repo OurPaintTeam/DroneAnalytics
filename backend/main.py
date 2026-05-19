@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.account_store import AccountStoreError, ensure_accounts_seeded
 from app.config import CORS_ORIGINS
 from app.errors import register_exception_handlers
 from app.routes.accounts import router as accounts_router
@@ -23,6 +24,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
+
+
+@app.on_event("startup")
+def bootstrap_account_state() -> None:
+    try:
+        ensure_accounts_seeded()
+    except AccountStoreError:
+        logging.getLogger(__name__).warning("Account state bootstrap skipped: Redis is unavailable")
 
 
 register_exception_handlers(app)
