@@ -12,6 +12,7 @@ make local
 ### secrets
 Подробно можно прочитать в [README](secrets/README.md). Дле тестовой генерации можно использовать `make secrets`.
 Тогда: апи ключ для журнала - change-me-api-key. Пользователь инфопанели - user. Его пароль - password.
+В `backend.yaml` также лежат Redis-креды для backend и инициализация `/accounts`.
 ###  Запуск
 ```shell
 docker-compose up --build

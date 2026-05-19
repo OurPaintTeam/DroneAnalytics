@@ -9,4 +9,5 @@ dependencies = [
     "PyYAML==6.0.2",
     "requests==2.33.0",
     "coverage==7.13.5"
+    "redis==7.1.0",
 ]
