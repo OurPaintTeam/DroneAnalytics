@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+import shlex
 from typing import Any
 
 import yaml
@@ -29,6 +30,40 @@ def _load_backend_secrets(path: str = "/run/secrets/backend.yaml") -> dict[str, 
         _fail(f"Backend secrets file must contain a mapping: {path}")
 
     return data
+
+
+def _load_secret_text(path: str) -> str:
+    secret_path = Path(path)
+    if not secret_path.is_file():
+        _fail(f"Secret file is missing: {path}")
+
+    try:
+        return secret_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        _fail(f"Failed to read secret file {path}: {exc}")
+
+
+def _read_redis_credentials(path: str = "/run/secrets/redis-sec.acl", username: str = "app") -> tuple[str, str]:
+    for raw_line in _load_secret_text(path).splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        try:
+            tokens = shlex.split(line)
+        except ValueError as exc:
+            _fail(f"Failed to parse Redis ACL secret {path}: {exc}")
+
+        if len(tokens) < 2 or tokens[0] != "user" or tokens[1] != username:
+            continue
+
+        password_token = next((token for token in tokens[2:] if token.startswith(">") and len(token) > 1), None)
+        if password_token is None:
+            _fail(f"Redis ACL entry for user {username} does not contain a password")
+
+        return username, password_token[1:]
+
+    _fail(f"Redis ACL entry for user {username} is missing in {path}")
 
 
 def _looks_like_password_hash(value: str) -> bool:
@@ -74,6 +109,15 @@ def _normalize_api_keys(raw: Any) -> list[str]:
     return keys
 
 
+def _normalize_cors_origins(raw: str) -> list[str]:
+    origins = [item.strip() for item in raw.split(",") if item.strip()]
+    if not origins:
+        _fail("CORS must contain at least one explicit origin")
+    if "*" in origins:
+        _fail("CORS must not contain '*' when credentials are enabled")
+    return origins
+
+
 _backend_secrets = _load_backend_secrets()
 
 _secret_key = _backend_secrets.get("secret_key")
@@ -88,12 +132,15 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TTL_SECONDS = int(os.getenv("DRONE_ACCESS_TTL_SECONDS", "900"))
 REFRESH_TTL_SECONDS = int(os.getenv("DRONE_REFRESH_TTL_SECONDS", "604800"))
 ELASTIC_URL = os.getenv("ELASTIC_URL", "http://elastic:9200")
-REDIS_URL = os.getenv("REDIS_URL", "redis://app:soStrongApp@redis:6379/0")
-CORS_ORIGINS = [
-    x.strip()
-    for x in os.getenv("DRONE_CORS_ORIGINS", "*").split(",")
-    if x.strip()
-]
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_USER, REDIS_PASSWORD = _read_redis_credentials(
+    username=os.getenv("REDIS_USER", "app"),
+)
+CORS_ORIGINS = _normalize_cors_origins(
+    os.getenv("DRONE_CORS_ORIGINS", "https://localhost"),
+)
 COOKIE_SECURE = True
 COOKIE_SAMESITE = "Strict"
 AUTH_USERS = _users

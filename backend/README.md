@@ -16,6 +16,7 @@
 ## Секреты
 
 Бэкенд читает только `/run/secrets/backend.yaml`.
+Для Redis-кредов используется отдельный Docker secret `/run/secrets/redis-sec.acl`.
 Файл должен содержать как минимум:
 - `secret_key`
 - `api_keys`
