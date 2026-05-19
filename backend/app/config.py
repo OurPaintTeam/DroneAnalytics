@@ -109,13 +109,16 @@ def _normalize_api_keys(raw: Any) -> list[str]:
     return keys
 
 
-def _normalize_cors_origins(raw: str) -> list[str]:
+def _normalize_cors_origins(raw: str) -> tuple[list[str], str | None]:
     origins = [item.strip() for item in raw.split(",") if item.strip()]
     if not origins:
         _fail("CORS must contain at least one explicit origin")
     if "*" in origins:
-        _fail("CORS must not contain '*' when credentials are enabled")
-    return origins
+        if len(origins) > 1:
+            _fail("CORS wildcard '*' must be used alone")
+        # Reflect the request Origin for credentialed requests while allowing any origin.
+        return [], ".*"
+    return origins, None
 
 
 _backend_secrets = _load_backend_secrets()
@@ -138,7 +141,7 @@ REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_USER, REDIS_PASSWORD = _read_redis_credentials(
     username=os.getenv("REDIS_USER", "app"),
 )
-CORS_ORIGINS = _normalize_cors_origins(
+CORS_ORIGINS, CORS_ORIGIN_REGEX = _normalize_cors_origins(
     os.getenv("DRONE_CORS_ORIGINS", "https://localhost"),
 )
 COOKIE_SECURE = True
