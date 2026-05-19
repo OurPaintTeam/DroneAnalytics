@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import CORS_ORIGIN_REGEX, CORS_ORIGINS
+from app.config import CORS_ORIGINS
 from app.errors import register_exception_handlers
 from app.routes.accounts import router as accounts_router
 from app.routes.auth import router as auth_router
@@ -19,7 +19,6 @@ app = FastAPI(title="DroneAnalytics API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
