@@ -66,6 +66,7 @@ def _wait_for_elastic(timeout_seconds: int = 60) -> None:
             if response.status_code == 200:
                 return
         except requests.RequestException:
+            # Elastic may not be reachable yet during startup; retry until timeout.
             pass
         time.sleep(1)
     pytest.skip(f"ElasticSearch is unavailable at {ELASTIC_URL}")
