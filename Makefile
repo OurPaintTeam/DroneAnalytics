@@ -26,7 +26,7 @@ healthcheck: prod clean
 
 .PHONY: tests secrets
 
-tests:
+integration-tests:
 	docker compose --profile tests up -d --build
 	docker logs -f tests
 	docker compose stop backend-coverage
