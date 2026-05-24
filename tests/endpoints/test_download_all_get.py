@@ -24,8 +24,8 @@ from .utils import (
 AUDIT_SERVICE = "infopanel"  # AUDIT_SERVICE из backend/app/audit.py
 
 EXPECTED_HEADERS = [
-    "index", "timestamp", "message", "drone", "drone_id", "battery", "pitch", "roll", 
-    "course", "latitude", "longitude", "service", "service_id", "severity"
+    "index", "timestamp", "message", "drone", "drone_id", "battery", "pitch", "roll",
+    "course", "latitude", "longitude", "height", "service", "service_id", "severity"
 ]
 
 
@@ -362,7 +362,7 @@ class TestDownloadAllCSVFormat:
         
         headers = get_csv_headers(resp)
         assert headers == EXPECTED_HEADERS
-        assert len(headers) == 14
+        assert len(headers) == 15
 
     def test_utf8_encoding_cyrillic(self, bearer_headers: Dict[str, str], api_headers: Dict[str, str]):
         """Тест #14: Кодировка UTF-8 (кириллица)."""
