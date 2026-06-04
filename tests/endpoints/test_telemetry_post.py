@@ -554,7 +554,7 @@ class TestTelemetryDataIntegrity:
             "apiVersion": "3.14.0",  # Специфичная версия для проверки
             "timestamp": get_timestamp_ms(),
             "drone": "delivery",
-            "drone_id": 1000,
+            "drone_id": 1001,
             "latitude": 55.123,
             "longitude": 37.456
         }]
@@ -565,17 +565,16 @@ class TestTelemetryDataIntegrity:
             headers=api_headers,
             timeout=10
         )
-        # Backend может возвращать 207 (Multi-Status) при частичном успехе
-        assert resp.status_code in (200, 207)
+        assert resp.status_code == 200
         
         wait_for_elastic_sync()
-        docs = search_telemetry_by_drone_id(1000)
+        docs = search_telemetry_by_drone_id(1001)
         assert len(docs) == 1
         
         doc = docs[0]
         # Ключевая проверка: apiVersion НЕ должно быть в сохранённом документе
         assert "apiVersion" not in doc, "apiVersion should be stripped before indexing"
-        assert doc["drone_id"] == 1000
+        assert doc["drone_id"] == 1001
 
     def test_numeric_types_preserved(self, api_headers: Dict[str, str]):
         """TC-TELE-041: Числовые типы сохраняются корректно."""
@@ -583,7 +582,7 @@ class TestTelemetryDataIntegrity:
             "apiVersion": "1.0.0",
             "timestamp": get_timestamp_ms(),
             "drone": "inspector",
-            "drone_id": 1000,  # int
+            "drone_id": 1002,  # int
             "battery": 75,      # int
             "pitch": 5.5,       # float
             "latitude": 59.9343,
@@ -596,11 +595,10 @@ class TestTelemetryDataIntegrity:
             headers=api_headers,
             timeout=10
         )
-        # Backend может возвращать 207 (Multi-Status)
-        assert resp.status_code in (200, 207)
+        assert resp.status_code == 200
         
         wait_for_elastic_sync()
-        docs = search_telemetry_by_drone_id(1000)
+        docs = search_telemetry_by_drone_id(1002)
         assert len(docs) == 1
         
         doc = docs[0]
@@ -618,7 +616,7 @@ class TestTelemetryDataIntegrity:
             "apiVersion": "1.0.0",
             "timestamp": precise_ts,
             "drone": "agriculture",
-            "drone_id": 100,
+            "drone_id": 1003,
             "latitude": 45.0,
             "longitude": 75.0
         }]
@@ -629,11 +627,10 @@ class TestTelemetryDataIntegrity:
             headers=api_headers,
             timeout=10
         )
-        # Backend может возвращать 207 (Multi-Status)
-        assert resp.status_code in (200, 207)
+        assert resp.status_code == 200
         
         wait_for_elastic_sync()
-        docs = search_telemetry_by_drone_id(100)
+        docs = search_telemetry_by_drone_id(1003)
         assert len(docs) == 1
         
         doc = docs[0]
