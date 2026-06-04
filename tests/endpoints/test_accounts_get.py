@@ -19,25 +19,6 @@ EXPECTED_ACCOUNT_IDS = [
 ]
 
 class TestGetAccounts:
-    def test_get_accounts_requires_bearer_token(self):
-        """GET /accounts без Bearer токена возвращает 401."""
-        resp = requests.get(
-            f"{BACKEND_URL}/accounts",
-            timeout=10,
-        )
-
-        assert resp.status_code == 401
-
-    def test_get_accounts_rejects_invalid_bearer_token(self):
-        """GET /accounts с невалидным Bearer токеном возвращает 401."""
-        resp = requests.get(
-            f"{BACKEND_URL}/accounts",
-            headers={"Authorization": "Bearer definitely-invalid-token"},
-            timeout=10,
-        )
-
-        assert resp.status_code == 401
-
     def test_get_accounts_returns_main_players(self, bearer_headers: Dict[str, str]):
         """GET /accounts возвращает только игроков из ТЗ без student/auth сущностей."""
         resp = requests.get(

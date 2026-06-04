@@ -30,13 +30,14 @@ class TestLoginSuccess:
         
         # Проверка структуры ответа
         assert "access_token" in data
+        assert "refresh_token" in data
         assert data["token_type"] == "Bearer"
         assert isinstance(data["expires_in"], int)
         assert data["expires_in"] > 0
         
         # Проверка, что токены — непустые строки
         assert isinstance(data["access_token"], str) and len(data["access_token"]) > 0
-        assert isinstance(resp.cookies.get("refresh_token"), str)
+        assert isinstance(data["refresh_token"], str) and len(data["refresh_token"]) > 0
 
     def test_auth_002_response_schema_validation(self, auth_credentials: Dict[str, str]):
         """AUTH-002: Тело ответа соответствует ожидаемой схеме."""
@@ -46,7 +47,7 @@ class TestLoginSuccess:
         
         # Явная проверка типов и значений
         assert isinstance(data["access_token"], str)
-        assert isinstance(resp.cookies.get("refresh_token"), str)
+        assert isinstance(data["refresh_token"], str)
         assert data["token_type"] == "Bearer"
         assert isinstance(data["expires_in"], int)
         assert data["expires_in"] > 0
@@ -69,8 +70,7 @@ class TestLoginSuccess:
         """AUTH-004: refresh_token содержит ожидаемые claims после успешного логина."""
         resp = auth_login(BACKEND_URL, auth_credentials, timeout=5)
         assert resp.status_code == 200
-        refresh_token = resp.cookies.get("refresh_token")
-        assert isinstance(refresh_token, str) and len(refresh_token) > 0
+        refresh_token = resp.json()["refresh_token"]
 
         payload: Dict[str, Any] = jwt.decode(
             refresh_token,
@@ -90,10 +90,8 @@ class TestLoginSuccess:
             data["access_token"],
             options={"verify_signature": False},
         )
-        refresh_token = resp.cookies.get("refresh_token")
-        assert isinstance(refresh_token, str) and len(refresh_token) > 0
         refresh_payload = jwt.decode(
-            refresh_token,
+            data["refresh_token"],
             options={"verify_signature": False},
         )
 
@@ -305,7 +303,7 @@ class TestLoginAudit:
         # Ищем запись по известной части сообщения (без client_ip)
         username = auth_credentials["username"]
         # Ключевая часть, которая НЕ меняется
-        search_substring = f"action=auth_login status=success username={username}"
+        search_substring = f"action=login status=success subject={username}"
         
         log_entry = get_recent_audit_log(search_substring, "info", "safety")
         
@@ -331,7 +329,7 @@ class TestLoginAudit:
         # Ищем запись о неудаче
         username = auth_credentials["username"]
         # Эта часть сообщения постоянная
-        search_substring = f"action=auth_login status=failure username={username} reason=invalid_credentials"
+        search_substring = f"action=login status=failure subject={username} reason=invalid_credentials"
         
         log_entry = get_recent_audit_log(search_substring, "warning", "safety")
         
